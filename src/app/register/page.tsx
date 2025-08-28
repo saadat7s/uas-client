@@ -1,22 +1,28 @@
 "use client";
 
-import Decoration from "../components/Decoration";
-import WelcomeCard from "../components/WelcomeCard";
-import Footer from "../components/Footer";
+import Image from "next/image";
+import WelcomeCard from "@/components/WelcomeCard";
+import Footer from "@/components/Footer";
+import logo from "@/public/Logo.png";
 
 export default function RegisterPage() {
   return (
     <>
-      <main className="center-wrap">
+      <main className="center-wrap with-mandala" role="main">
         <div className="center-content">
-          <div
-            data-image-slot="../public/logo.svg"
-            className="logo-slot-floating"
-            title="Logo placeholder"
-          />
+          <div className="logo-slot-floating">
+            <Image
+              src={logo}
+              alt="PUCAS logo"
+              width={200}
+              height={200}
+              priority
+            />
+          </div>
           <WelcomeCard />
         </div>
       </main>
+
       <Footer />
     </>
   );
