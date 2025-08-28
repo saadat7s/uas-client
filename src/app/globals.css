@@ -262,3 +262,73 @@ body {
     zoom: 0.8;               /* Chrome/Edge/IE */
   }
 }
+
+
+/* ================================
+   REUSABLE BUTTON
+   ================================ */
+.normal-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: var(--pakistan-green-600);
+  color: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  transition: background var(--t-med), box-shadow var(--t-med), transform 60ms ease;
+  cursor: pointer;
+}
+
+.normal-button:hover {
+  background: #0b5944;
+  box-shadow: 0 6px 18px rgba(0,0,0,.14);
+}
+
+.normal-button:active {
+  transform: translateY(1px);
+}
+
+.normal-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ================================
+   OUTLINE BUTTON (inverse style)
+   ================================ */
+.outline-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 1.25rem;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--pakistan-green-600);
+  border: 1.5px solid var(--pakistan-green-600);
+  transition: background var(--t-med), color var(--t-med), box-shadow var(--t-med), transform 60ms ease;
+  cursor: pointer;
+}
+
+.outline-button:hover {
+  background: var(--mint-100);
+  box-shadow: 0 6px 16px rgba(0,0,0,.08);
+}
+
+.outline-button:active {
+  transform: translateY(1px);
+}
+
+.outline-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
