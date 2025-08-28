@@ -203,7 +203,7 @@ export default function AccountCreationPage() {
 
             <p className="mt-6 text-center text-sm text-gray-600">
               Already have an account?
-              <a href="#" className="link-primary ml-1">
+              <a href="/Login" className="link-primary ml-1">
                 Go to the login page
               </a>
             </p>

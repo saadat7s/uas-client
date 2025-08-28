@@ -20,7 +20,7 @@ export default function WelcomeCard() {
 
       <p className="text-gray-600 text-sm text-center mb-6">
         Already have an account?
-        <a href="/login" className="link-primary ml-1">Go to the login page</a>
+        <a href="/Login" className="link-primary ml-1">Go to the login page</a>
       </p>
 
       <div className="option-group">
