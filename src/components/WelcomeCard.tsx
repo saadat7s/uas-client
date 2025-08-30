@@ -7,7 +7,7 @@ export default function WelcomeCard() {
   const router = useRouter();
 
   return (
-    <section className="main-card p-8">
+    <section className="main-card-signarea p-8">
       <div className="text-center mb-6">
         <h2 className="title-primary">Let’s get started!</h2>
         <p className="title-secondary">Welcome to PCAS</p>

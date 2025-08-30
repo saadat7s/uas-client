@@ -96,6 +96,19 @@ body {
   margin: 0 auto;
 }
 
+.main-card-signarea {
+  position: relative;
+  width: 70%;
+  max-width: 620px;
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(#fff, #fff) padding-box, 
+    linear-gradient(to right, #9be6c7, #0ea971, #14bfa5) border-box;
+  border: 2px solid transparent;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  margin: 0 auto;
+}
+
 .title-primary {
   font-size: 1.9rem;
   line-height: 1.2;
@@ -180,7 +193,7 @@ body {
 .link-primary { color: var(--accent); font-weight: 600; }
 .link-primary:hover { text-decoration: underline; }
 
-.with-mandala::after {
+.with-mandala::before {
   content: "";
   position: absolute;
   right: -40px;
@@ -198,39 +211,59 @@ body {
   z-index: 0;
 }
 
+.with-minar::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;                       /* behind all children, above bg */
+  left: 48px;                        /* tweak to taste */
+  bottom: -50px;
+
+  /* Size scales nicely across viewports */
+  width: clamp(180px, 22vw, 360px);
+  aspect-ratio: 1 / 1;
+
+  /* Assumes image is in /public/minarepakistan.png */
+  background-image: url("../Public/minarepakistan.png");
+  background-repeat: no-repeat;
+  background-position: bottom left;
+  background-size: contain;
+
+  /* Soft blend to match your existing style */
+  mix-blend-mode: soft-light;
+  opacity: .20;
+  filter: saturate(110%) contrast(105%);
+}
 /* ================================
    FOOTER (STICKY - baseline + minar)
    ================================ */
+/* Footer becomes its own stacking context */
 .footer { 
-  position: relative; 
+  position: relative;
+  isolation: isolate;         /* <— key: traps z-index inside footer */
   padding: 3rem 1rem 2rem;
-  flex-shrink: 0; /* Prevents footer from shrinking */
-  margin-top: auto; /* Pushes footer to bottom when content is short */
+  flex-shrink: 0;
+  margin-top: auto;
+  height: auto;
+  z-index: 0;
 }
 
+/* Baseline divider + content always above decor */
+.footer-divider,
+.footer-links,
+.footer small { 
+  position: relative; 
+  z-index: 1;                 /* above the decor */
+}
+
+/* Baseline divider */
 .footer-divider {
   position: absolute;
-  bottom: 0; 
+  bottom: 0;
   left: 0;
-  width: 100%; 
+  width: 100%;
   height: 1px;
   background: rgba(0,0,0,.12);
-  z-index: 3;
-}
-
-/* Minar sits ON the baseline; soft blend to background */
-.footer-decor {
-  position: absolute;
-  bottom: -2px;
-  z-index: 2;
-  pointer-events: none;
-}
-.footer-decor-left  { left: 48px; }
-
-.blend-soft {
-  mix-blend-mode: soft-light;
-  opacity: .2;
-  filter: saturate(110%) contrast(105%);
 }
 
 /* Footer links */
@@ -333,3 +366,77 @@ body {
   cursor: not-allowed;
   box-shadow: none;
 }
+
+/* ================================
+   FORM ELEMENTS
+   ================================ */
+
+/* ===== Dashboard grid (~80% page width) ===== */
+.dashboard-grid{
+  display: grid;
+  /* LEFT / CENTER (fluid) / RIGHT */
+  grid-template-columns: 280px minmax(760px, 1fr) 340px;
+  gap: 28px;
+  align-items: start;
+  justify-content: center;
+  width: clamp(1100px, 80vw, 1480px);
+  margin: 0 auto;
+}
+/* Let rails inherit column widths from the grid */
+.left-rail, .center-rail, .right-rail { width: auto; }
+
+/* Responsive steps */
+@media (max-width:1360px){
+  .dashboard-grid{
+    grid-template-columns: 260px minmax(680px, 1fr) 320px;
+    gap: 24px;
+  }
+}
+@media (max-width:1024px){
+  .dashboard-grid{ grid-template-columns: 240px 1fr; }
+  .right-rail{ grid-column: 1 / -1; width: 100%; }
+}
+
+/* Align tops across rails */
+.left-rail .main-card{ position: sticky; top: 0; }
+.faq-card{ position: sticky; top: 0; }
+
+/* ===== Sidebar hover/active ===== */
+.sidebar-link{
+  display:flex; align-items:center; gap:.75rem;
+  padding:.5rem .75rem; border-radius:12px;
+  transition:var(--t-fast); font-size:.92rem;
+}
+.hover-grey:hover{ background:#f3f4f6; }
+.sidebar-link.active{ background:#f1f5f9; font-weight:600; }
+
+/* ===== Card size variants ===== */
+.main-card{ width:100%; max-width:unset; }
+.main-card-sm{ max-width:360px; padding:1rem 1.25rem; }
+.main-card-md{ max-width:none; width:100%; padding:1.25rem 1.5rem; }
+.main-card-lg{ max-width:none; width:100%; padding:1.75rem 2rem; } /* unified center card */
+.main-card-full{ max-width:none; width:100%; padding:2rem; }
+
+/* ===== Section chips ===== */
+.chips{ display:flex; flex-wrap:wrap; gap:.75rem; }
+.chip{
+  display:inline-flex; align-items:center; justify-content:center;
+  height:38px; padding:0 14px; border-radius:9999px;
+  background:#fff; border:1px solid rgba(14,169,113,.22);
+  font-weight:600; color:#0a3a2e;
+  transition: box-shadow var(--t-med), transform 60ms ease;
+  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+}
+.chip:hover{ box-shadow:0 10px 22px rgba(14,169,113,.12); transform:translateY(-1px); }
+
+/* ===== FAQ rail ===== */
+.faq-card{ width:100%; max-width:360px; margin:0; }
+.faq-search{
+  display:flex; align-items:center; gap:.5rem;
+  border:1px solid #e5e7eb; background:#fff;
+  border-radius:12px; padding:.5rem .75rem;
+}
+.faq-item{ border:1px solid #e5e7eb; background:#fff; border-radius:12px; padding:.75rem .9rem; }
+.faq-item>summary{ cursor:pointer; font-weight:600; font-size:.9rem; list-style:none; }
+.faq-item>summary::-webkit-details-marker{ display:none; }
+.faq-body{ margin-top:.5rem; color:#475569; font-size:.88rem; }

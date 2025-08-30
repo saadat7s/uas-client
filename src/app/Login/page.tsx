@@ -68,8 +68,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col">
-      <main className="flex-1 center-wrap with-mandala" role="main">
+    <>
+      <main className="flex-1 center-wrap with-mandala with-minar" role="main">
         <div className="center-content relative z-[1] w-full max-w-[560px]">
           {/* Logo */}
           <div className="logo-slot-floating mb-6 flex justify-center">
@@ -154,8 +154,7 @@ export default function LoginPage() {
           </section>
         </div>
       </main>
-
-      <Footer />
-    </div>
+      <Footer/>
+      </>
   )
 }

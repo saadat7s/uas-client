@@ -8,7 +8,7 @@ import logo from "@/public/Logo.png";
 export default function RegisterPage() {
   return (
     <>
-      <main className="center-wrap with-mandala" role="main">
+      <main className="center-wrap with-mandala with-minar" role="main">
         <div className="center-content">
           <div className="logo-slot-floating">
             <Image
@@ -22,7 +22,6 @@ export default function RegisterPage() {
           <WelcomeCard />
         </div>
       </main>
-
       <Footer />
     </>
   );
