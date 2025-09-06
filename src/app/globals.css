@@ -440,3 +440,166 @@ body {
 .faq-item>summary{ cursor:pointer; font-weight:600; font-size:.9rem; list-style:none; }
 .faq-item>summary::-webkit-details-marker{ display:none; }
 .faq-body{ margin-top:.5rem; color:#475569; font-size:.88rem; }
+
+
+
+/* ===== Tree elements ===== */
+/* Collapsible tree nav */
+.tree details { border-radius: 12px; }
+.tree summary { list-style: none; cursor: pointer; }
+.tree summary::-webkit-details-marker { display: none; }
+.tree .dot { font-size: 1rem; line-height: 1; opacity:.6; }
+
+
+/* ===== application bs ===== */
+.app-grid{
+  display:grid;
+  grid-template-columns: 340px minmax(760px, 1fr) 360px; /* LEFT / CENTER / RIGHT */
+  gap:24px; align-items:start; justify-content:center;
+  width: clamp(1180px, 88vw, 1640px);
+  margin:0 auto;
+}
+.app-left,.app-center,.app-right{ width:auto; }
+
+@media (max-width:1360px){
+  .app-grid{ grid-template-columns: 310px minmax(680px,1fr) 320px; }
+}
+@media (max-width:1024px){
+  .app-grid{ grid-template-columns: 260px 1fr; }
+  .app-right{ grid-column: 1 / -1; }
+}
+
+/* Left rail: shell + internal 48px icon column next to the section tree */
+.app-left-shell{ position:sticky; top:0; height:calc(100vh - 0px); overflow:auto; padding:0; border-radius:16px; }
+.app-left-header{ padding:16px 20px; border-bottom:1px solid rgba(0,0,0,.08); font-weight:700; }
+.app-left-body{ display:grid; grid-template-columns:48px 1fr; }
+.icon-rail{ padding:10px 6px; border-right:1px solid rgba(0,0,0,.08); display:flex; flex-direction:column; gap:10px; align-items:center; }
+.icon-btn{ width:36px; height:36px; border-radius:10px; display:grid; place-items:center; transition:var(--t-fast); }
+.icon-btn:hover{ background:#f3f4f6; }
+
+/* Center editor: tall scrollable sheet with subtle accent border */
+.editor-card{ margin:0; padding:1.25rem 1.5rem; border:1px solid rgba(14,169,113,.22);
+  box-shadow:0 8px 24px rgba(0,0,0,.06); border-radius:16px; max-height:calc(100vh - 16px); overflow:auto; }
+.thin-scrollbars{ scrollbar-width:thin; scrollbar-color: rgba(0,0,0,.18) transparent; }
+.thin-scrollbars::-webkit-scrollbar{ width:8px; height:8px; }
+.thin-scrollbars::-webkit-scrollbar-thumb{ background:rgba(0,0,0,.18); border-radius:9999px; }
+
+/* Small helpers */
+.breadcrumb{ font-size:.78rem; color:#64748b; }
+.status-dot{ width:10px; height:10px; border-radius:9999px; background:var(--emerald); display:inline-block; margin-right:8px; }
+
+/* Tree nav keeps your existing styles; just ensure summary looks clickable */
+.tree summary{ list-style:none; cursor:pointer; }
+.tree summary::-webkit-details-marker{ display:none; }
+
+/* ================================
+   EXPANDABLE SIDEBAR — MINIMAL ADD-ON
+   (append-only; no overrides to existing rules)
+   ================================ */
+
+/* 4-col grid variant ONLY when you add `with-subpanel` on .app-grid */
+.app-grid.with-subpanel { /* LEFT | SUBPANEL | CENTER | RIGHT */
+  grid-template-columns: 340px 320px minmax(760px,1fr) 360px;
+}
+@media (max-width:1360px){
+  .app-grid.with-subpanel { grid-template-columns: 310px 280px minmax(680px,1fr) 320px; }
+}
+@media (max-width:1024px){
+  .app-grid.with-subpanel { grid-template-columns: 260px 1fr; }
+  .app-left-panel, .app-right { grid-column: 1 / -1; }
+}
+
+/* dedicated column wrapper for the flyout */
+.app-left-panel { position: sticky; top: 0; align-self: start; }
+
+/* container that holds the sidebar + (optional) panel */
+.app-sidebar-container { display: flex; position: relative; }
+
+/* lightweight spacing for the sidebar’s internal content */
+.sidebar-content { padding: 12px; }
+
+/* section buttons + states */
+.sidebar-sections { margin: 16px 0; }
+
+.sidebar-section-button {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px; border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(14,169,113,.12);
+  font-weight: 500; color: var(--pakistan-green-600);
+  transition: all var(--t-fast); cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+}
+.sidebar-section-button:hover {
+  background: #f8fffe; box-shadow: 0 6px 16px rgba(14,169,113,.08);
+  transform: translateY(-1px);
+}
+.sidebar-section-button.active {
+  background: var(--mint-100);
+  border-color: var(--pakistan-green);
+  border-right: 3px solid var(--pakistan-green);
+  color: var(--pakistan-green);
+}
+
+/* chevron + dot */
+.sidebar-chevron {
+  display: flex; align-items: center;
+  color: var(--pakistan-green-600);
+  transition: transform var(--t-fast);
+}
+.sidebar-section-button.active .sidebar-chevron { transform: rotate(90deg); }
+
+.sidebar-dot {
+  width: 16px; height: 16px; border: 2px dashed var(--pakistan-green-600);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 8px; opacity: .7;
+}
+
+/* flyout panel (lives in its own grid column) */
+.sidebar-panel {
+  width: 320px; background: #fff;
+  border: 1px solid rgba(14,169,113,.22);
+  border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.06);
+  height: calc(100vh - 0px); overflow: hidden;
+  display: none; /* hidden by default; enable with .is-open */
+  flex-direction: column; transition: all var(--t-med);
+}
+.sidebar-panel.is-open { display: flex; }
+
+/* panel header + close */
+.sidebar-panel-header {
+  padding: 16px 20px; border-bottom: 1px solid rgba(0,0,0,.08);
+  background: linear-gradient(to right, var(--mint-100), #f0fdf4);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.sidebar-panel-close {
+  padding: 6px; border-radius: 50%; background: transparent; border: none;
+  color: var(--pakistan-green-600); cursor: pointer; transition: background var(--t-fast);
+  margin-left: auto;
+}
+.sidebar-panel-close:hover { background: rgba(14,169,113,.1); }
+
+/* panel body + items */
+.sidebar-panel-content { flex: 1; overflow-y: auto; padding: 8px; }
+.sidebar-panel-item {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 12px 16px; border-radius: 12px;
+  color: var(--pakistan-green-600); border-bottom: 1px solid rgba(0,0,0,.04);
+  text-decoration: none; transition: all var(--t-fast);
+}
+.sidebar-panel-item:hover { background: var(--mint-100); transform: translateX(4px); }
+.sidebar-panel-item.active {
+  background: linear-gradient(to right, var(--mint-300), var(--mint-100));
+  color: var(--pakistan-green); font-weight: 600; border-left: 3px solid var(--pakistan-green);
+}
+.sidebar-panel-item:last-child { border-bottom: none; }
+
+/* small utility (valid CSS replacement for “space-y”) */
+.sidebar-footer > * + * { margin-top: 4px; }
+
+/* in globals.css (append-only) */
+.sidebar-dot.filled {
+  background: var(--pakistan-green);
+  border-color: var(--pakistan-green);
+  border-style: solid;
+}
