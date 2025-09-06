@@ -69,7 +69,7 @@ export default async function DashboardPage() {
 
               <nav className="space-y-1">
                 <SidebarLink href="/Dashboard" label="Dashboard" active />
-                <SidebarLink href="/MainPages/MyApplication" label="My Common Application" />
+                <SidebarLink href="/MainPages/MyApplication/Profile" label="My PCAS Application" />
                 <SidebarLink href="/colleges" label="My Colleges" />
               </nav>
 
