@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import LeftRail from "@/components/bars/LeftRail";
 import SubPanel from "@/components/bars/SubPanel";
@@ -11,10 +12,14 @@ import TextField from "@/components/form/TextField";
 import SelectField from "@/components/form/SelectField";
 import RadioGroup from "@/components/form/RadioGroup";
 import { SECTION_LABEL, SUBSECTIONS, slug } from "@/lib/contants";
+import { useAuth } from "@/app/redux/hooks";
+import { useProfile } from "@/app/redux/hooks/useProfile";
+import { useApplication } from "@/app/redux/hooks/useApplication";
+import ServerStatus from "@/components/debug/ServerStatus";
 
 /* ---------- helpers ---------- */
 const SECTION_KEY = "profile" as const;
-const storageKey = "pcas:application:profile";
+const getStorageKey = (userId?: string) => `pcas:application:profile:${userId || 'anonymous'}`;
 
 type Values = {
   firstName: string;
@@ -116,34 +121,105 @@ function DatePickerField({
 export default function ProfilePage() {
   const sectionLabel = SECTION_LABEL[SECTION_KEY];
   const subsections = SUBSECTIONS[SECTION_KEY];
+  const { user, isAuthenticated } = useAuth();
+  const {
+    profile,
+    isLoading,
+    error,
+    lastSaved,
+    loadProfile,
+    saveProfileData,
+    clearProfileError
+  } = useProfile();
+  const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   const [values, setValues] = useState<Values>(DEFAULTS);
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [status, setStatus] = useState<
     "not_started" | "in_progress" | "complete"
   >("not_started");
   const [renderKey, setRenderKey] = useState(0);
 
-  // load persisted
+  useEffect(() => setMounted(true), []);
+
+  // Redirect to login if not authenticated
   useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/Login');
+    }
+  }, [isAuthenticated, router]);
+
+  // Load profile data from Redux and local storage
+  const loadProfileData = useCallback(async () => {
+    if (!user || !isAuthenticated) return;
+    
     try {
+      // Try to load from Redux/Server first
+      if (!profile) {
+        loadProfile();
+      }
+      
+      // If we have profile data from Redux, use it
+      if (profile) {
+        const loadedValues: Values = {
+          firstName: profile.firstName || '',
+          middleName: profile.middleName || '',
+          lastName: profile.lastName || '',
+          address: profile.address || '',
+          primaryLang: profile.primaryLang || '',
+          citizen: profile.citizen || '',
+          cnic: profile.cnic || '',
+          gender: profile.gender || '',
+          dob: profile.dob ? new Date(profile.dob).toISOString().split('T')[0] : '',
+          maritalStatus: profile.maritalStatus || '',
+          phone: profile.phone || '',
+          photoName: profile.photoName || '',
+          photoBytes: profile.photoBytes || 0,
+        };
+        setValues(loadedValues);
+        setStatus("complete");
+        return;
+      }
+      
+      // Fallback to local storage
+      const storageKey = getStorageKey(user.id);
       const raw = localStorage.getItem(storageKey);
+      let loadedValues = { ...DEFAULTS };
+      
       if (raw) {
         const parsed = JSON.parse(raw) as {
           values: Values;
           status?: string;
           savedAt?: string;
         };
-        setValues({ ...DEFAULTS, ...parsed.values });
-        setStatus((parsed.status as any) ?? "in_progress");
-        setSavedAt(parsed.savedAt ? new Date(parsed.savedAt) : null);
+        loadedValues = { ...DEFAULTS, ...parsed.values };
+        setStatus((parsed.status as "not_started" | "in_progress" | "complete") ?? "in_progress");
+      } else {
+        // Pre-populate with user data if no saved data exists
+        const nameParts = user.fullName.split(' ');
+        loadedValues = {
+          ...DEFAULTS,
+          firstName: nameParts[0] || '',
+          lastName: nameParts[nameParts.length - 1] || '',
+          middleName: nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '',
+          address: user.address || '',
+          phone: user.phone || '',
+          dob: user.dob ? new Date(user.dob).toISOString().split('T')[0] : '',
+        };
       }
-    } catch {}
-    setRenderKey((k) => k + 1);
-  }, []);
+      
+      setValues(loadedValues);
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+    } finally {
+      setRenderKey((k) => k + 1);
+    }
+  }, [user, isAuthenticated, profile, loadProfile]);
+
+  // Load data when component mounts or profile changes
+  useEffect(() => {
+    loadProfileData();
+  }, [loadProfileData]);
 
   // file input handler
   const onPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,54 +268,100 @@ export default function ProfilePage() {
   }, [values]);
 
   const onSubmit = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
+    async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      const fd = new FormData(e.currentTarget);
-      const payload = asStringMap(fd);
-      const next: Values = {
-        ...values,
-        ...payload,
-        photoName: values.photoName,
-        photoBytes: values.photoBytes,
-      };
-      setValues(next);
-
-      const meetsRequired =
-        !!next.firstName.trim() &&
-        !!next.lastName.trim() &&
-        !!next.address.trim() &&
-        !!next.primaryLang &&
-        !!next.citizen &&
-        !!next.cnic.trim() &&
-        !!next.gender.trim() &&
-        !!next.dob &&
-        !!next.maritalStatus.trim() &&
-        !!next.phone.trim() &&
-        !!next.photoName &&
-        next.photoBytes > 0 &&
-        next.photoBytes <= 5 * 1024 * 1024;
-
-      const nextStatus: typeof status = meetsRequired
-        ? "complete"
-        : "in_progress";
-      setStatus(nextStatus);
-
-      const now = new Date();
-      setSavedAt(now);
+      clearProfileError();
+      
       try {
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            values: next,
-            status: nextStatus,
-            savedAt: now.toISOString(),
-          })
-        );
-      } catch {}
-      setRenderKey((k) => k + 1);
+        const fd = new FormData(e.currentTarget);
+        const payload = asStringMap(fd);
+        const next: Values = {
+          ...values,
+          ...payload,
+          photoName: values.photoName,
+          photoBytes: values.photoBytes,
+        };
+        setValues(next);
+
+        const meetsRequired =
+          !!next.firstName.trim() &&
+          !!next.lastName.trim() &&
+          !!next.address.trim() &&
+          !!next.primaryLang &&
+          !!next.citizen &&
+          !!next.cnic.trim() &&
+          !!next.gender.trim() &&
+          !!next.dob &&
+          !!next.maritalStatus.trim() &&
+          !!next.phone.trim() &&
+          !!next.photoName &&
+          next.photoBytes > 0 &&
+          next.photoBytes <= 5 * 1024 * 1024;
+
+        const nextStatus: typeof status = meetsRequired
+          ? "complete"
+          : "in_progress";
+        setStatus(nextStatus);
+
+        // Prepare data for Redux/Server
+        const profileData = {
+          firstName: next.firstName,
+          middleName: next.middleName,
+          lastName: next.lastName,
+          address: next.address,
+          primaryLang: next.primaryLang as 'en' | 'ur',
+          citizen: next.citizen as 'PK' | 'Non-PK',
+          cnic: next.cnic,
+          gender: next.gender as 'Male' | 'Female',
+          dob: next.dob,
+          maritalStatus: next.maritalStatus as 'Married' | 'Unmarried',
+          phone: next.phone,
+          photoName: next.photoName,
+          photoBytes: next.photoBytes,
+        };
+
+        // Save to Redux/Server
+        saveProfileData(profileData);
+
+        // Also save to local storage as backup
+        const now = new Date();
+        const storageKey = getStorageKey(user?.id);
+        try {
+          localStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              values: next,
+              status: nextStatus,
+              savedAt: now.toISOString(),
+            })
+          );
+        } catch (localError) {
+          console.error('Failed to save to local storage:', localError);
+        }
+        
+        setRenderKey((k) => k + 1);
+      } catch (error) {
+        console.error('Error saving profile:', error);
+      }
     },
-    [values, status]
+    [values, clearProfileError, saveProfileData, user?.id]
   );
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="center-wrap with-mandala with-minar">
+        <div className="main-card p-8 text-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   return (
     <main className="center-wrap with-mandala with-minar" role="main">
@@ -272,11 +394,18 @@ export default function ProfilePage() {
                       ? "Complete"
                       : "Not started"}
                     <span suppressHydrationWarning>
-                      {mounted && savedAt
-                        ? `· Saved ${savedAt.toLocaleTimeString()}`
+                      {mounted && lastSaved
+                        ? `· Saved ${new Date(lastSaved).toLocaleTimeString()}`
                         : null}
                     </span>
+                    {isLoading && <span className="text-blue-600">Saving...</span>}
                   </div>
+                  <ServerStatus className="mt-2" />
+                  {error && (
+                    <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                      {error}
+                    </div>
+                  )}
                 </div>
                 <Link href="#" className="outline-button shrink-0">
                   Preview
@@ -415,16 +544,21 @@ export default function ProfilePage() {
 
               <div className="pt-3 pb-2">
                 <div className="flex gap-3">
-                  <button type="submit" className="normal-button">
-                    Save
+                  <button 
+                    type="submit" 
+                    className="normal-button"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Saving...' : 'Save'}
                   </button>
                   <button
                     type="submit"
                     name="submitAndContinue"
                     value="1"
                     className="outline-button"
+                    disabled={isLoading}
                   >
-                    Save & Continue
+                    {isLoading ? 'Saving...' : 'Save & Continue'}
                   </button>
                 </div>
               </div>

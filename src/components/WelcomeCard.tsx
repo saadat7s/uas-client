@@ -14,7 +14,7 @@ export default function WelcomeCard() {
         <p className="description-text">
           The Pakistan Centralized Admission System.
           <br /><br />
-          Please select your application type to begin the registration process.
+          Create your student account to begin the application process for undergraduate and graduate programs.
         </p>
       </div>
 
@@ -25,14 +25,9 @@ export default function WelcomeCard() {
 
       <div className="option-group">
         <OptionRow
-          label="First-year student"
-          note="Undergraduate · داخلہ برائے انڈرگریجویٹ"
+          label="Create Student Account"
+          note="For both undergraduate and graduate programs · انڈرگریجویٹ اور گریجویٹ پروگرام"
           onClick={() => router.push("/register/accountcreation")}
-        />
-        <OptionRow
-          label="Graduate student"
-          note="Masters/Doctorate · گریجویٹ پروگرام"
-          onClick={() => router.push("/register/accountcreation")} 
         />
       </div>
     </section>

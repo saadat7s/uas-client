@@ -1,50 +1,93 @@
 // app/(dashboard)/page.tsx
+"use client"
+
 import Footer from "@/components/Footer";
 import Link from "next/link";
+import { useAppDispatch } from "@/app/redux/hooks";
+import { logoutUser } from "@/app/redux/features/auth";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/app/redux/hooks";
+import { useEffect } from "react";
 
-/** Types */
-interface Section { key: string; label: string; completed: boolean }
-interface CollegeSummary { name: string; status: "in_progress" | "submitted" | "draft" }
-interface DashboardData {
-  user: { name: string; caid: string; initials: string };
-  sections: Section[];
-  colleges: { list: CollegeSummary[] };
-}
+/** Types removed as static data is used without typings for now */
 
-/** Mock data — wire to API later */
-async function getDashboardData(): Promise<DashboardData> {
-  return {
-    user: { name: "Raja Yaseen", caid: "47247138", initials: "RY" },
-    sections: [
-      { key: "profile", label: "Profile", completed: true },
-      { key: "family", label: "Family", completed: false },
-      { key: "education", label: "Education", completed: false },
-      { key: "testing", label: "Testing", completed: false },
-      { key: "activities", label: "Activities", completed: false },
-      { key: "writing", label: "Writing", completed: false },
-    ],
-    colleges: { list: [{ name: "Rollins College", status: "in_progress" }] },
-  };
-}
+// Function removed - using static data in component for now
 
-/** Small helper */
-function SidebarLink({
-  href = "#",
-  label,
-  active = false,
-}: { href?: string; label: string; active?: boolean }) {
+function SidebarLink({ href = "#", label, active = false, onClick }: { href?: string; label: string; active?: boolean; onClick?: () => void }) {
+  if (onClick) {
+    return (
+      <button onClick={onClick} className={["sidebar-link", "hover-grey", active ? "active" : ""].join(" ")}>
+        <span>{label}</span>
+      </button>
+    );
+  }
+  
   return (
-    <Link
-      href={href}
-      className={["sidebar-link", "hover-grey", active ? "active" : ""].join(" ")}
-    >
+    <Link href={href} className={["sidebar-link", "hover-grey", active ? "active" : ""].join(" ")}>
       <span>{label}</span>
     </Link>
   );
 }
 
-export default async function DashboardPage() {
-  const data = await getDashboardData();
+export default function DashboardPage() {
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/Login');
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="center-wrap with-mandala with-minar">
+        <div className="main-card p-8 text-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
+  // Application sections - these would be fetched from user's application data
+  const sections = [
+    { key: "profile", label: "Profile", completed: checkSectionComplete("profile") },
+    { key: "family", label: "Family", completed: checkSectionComplete("family") },
+    { key: "education", label: "Education", completed: checkSectionComplete("education") },
+    { key: "testing", label: "Testing", completed: checkSectionComplete("testing") },
+    { key: "activities", label: "Activities", completed: checkSectionComplete("activities") },
+    { key: "writing", label: "Writing", completed: checkSectionComplete("writing") },
+  ];
+
+  // User's colleges - would be fetched from user's college applications
+  const colleges = { list: [] as Array<{ name: string; status: string }> }; // TODO: Fetch from user's college applications
+
+  // Helper function to check if a section is complete
+  function checkSectionComplete(sectionKey: string): boolean {
+    try {
+      const storageKey = `pcas:application:${sectionKey}`;
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return false;
+      
+      const parsed = JSON.parse(stored);
+      return parsed.status === 'complete' || parsed.status === 'in_progress';
+    } catch {
+      return false;
+    }
+  }
+  
+  const completedCount = sections.reduce((count, section) => {
+    return count + (section.completed ? 1 : 0);
+  }, 0);
+  
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return "Good morning";
@@ -52,7 +95,26 @@ export default async function DashboardPage() {
     return "Good evening";
   })();
 
-  const completedCount = data.sections.filter(s => s.completed).length;
+  const deriveInitials = (fullName: string) => {
+    const parts = fullName.trim().split(/\s+/);
+    const first = parts[0]?.[0] || "";
+    const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+    return (first + last).toUpperCase() || "U";
+  };
+
+  const displayName = user.fullName;
+  const displayInitials = deriveInitials(user.fullName);
+
+  const handleSignOut = async () => {
+    try {
+      await dispatch(logoutUser());
+      router.push('/'); // Redirect to home page after logout
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Even if logout fails on server, we still redirect to clear the UI
+      router.push('/');
+    }
+  };
 
   return (
     <>
@@ -84,20 +146,14 @@ export default async function DashboardPage() {
 
               <div className="mt-auto space-y-1">
                 <SidebarLink href="/settings" label="Settings" />
-                <SidebarLink href="/signout" label="Sign out" />
-                <div
-                  className="mt-3 flex items-center gap-3 rounded-xl p-3 text-sm main-card"
-                  style={{ width: "100%", margin: 0 }}
-                >
-                  <div
-                    className="grid h-9 w-9 place-items-center rounded-full"
-                    style={{ background: "var(--emerald)", color: "white" }}
-                  >
-                    {data.user.initials}
+                <SidebarLink label="Sign out" onClick={handleSignOut} />
+                <div className="mt-3 flex items-center gap-3 rounded-xl p-3 text-sm main-card" style={{ width: "100%", margin: 0 }}>
+                  <div className="grid h-9 w-9 place-items-center rounded-full" style={{ background: "var(--emerald)", color: "white" }}>
+                    {displayInitials}
                   </div>
                   <div>
-                    <div className="font-medium leading-tight">{data.user.name}</div>
-                    <div className="text-xs text-gray-500">CAID {data.user.caid}</div>
+                    <div className="font-medium leading-tight">{displayName}</div>
+                    <div className="text-xs text-gray-500">{user.email}</div>
                   </div>
                 </div>
               </div>
@@ -110,7 +166,7 @@ export default async function DashboardPage() {
               {/* Greeting */}
               <header className="pb-4 mb-2 border-b border-black/10">
                 <h1 className="title-primary !text-left !mb-1">
-                  {greeting}, {data.user.name.split(" ")[0]}!
+                  {greeting}, {displayName.split(" ")[0]}!
                 </h1>
                 <p className="title-secondary !text-left">
                   Here’s a snapshot of your application progress.
@@ -121,8 +177,8 @@ export default async function DashboardPage() {
               <section className="py-4 border-b border-black/10">
                 <h4 className="text-lg font-semibold mb-3">My Common Application</h4>
                 <div className="chips">
-                  {data.sections.map((s) => (
-                    <Link key={s.key} href={`/MainPages/MyApplication#${s.key}`} className="chip">
+                  {sections.map((s) => (
+                    <Link key={s.key} href={`/MainPages/MyApplication/${s.key === 'activities' ? 'Extracurricular' : s.key.charAt(0).toUpperCase() + s.key.slice(1)}`} className="chip">
                       {/* add a subtle status dot before label */}
                       <span
                         className={[
@@ -137,7 +193,7 @@ export default async function DashboardPage() {
                   ))}
                 </div>
                 <div className="mt-3 text-sm text-gray-600">
-                  {completedCount}/{data.sections.length} sections complete
+                  {completedCount}/{sections.length} sections complete
                 </div>
               </section>
 
@@ -147,16 +203,16 @@ export default async function DashboardPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-sm text-gray-600">
-                      {data.colleges.list.length} college on my list
+                      {colleges.list.length} college{colleges.list.length !== 1 ? 's' : ''} on my list
                     </p>
                     <div className="mt-2 h-2 w-56 overflow-hidden rounded-full bg-gray-200">
                       <div
                         className="h-full rounded-full"
-                        style={{ width: `33%`, background: "var(--emerald)" }}
+                        style={{ width: colleges.list.length > 0 ? `33%` : '0%', background: "var(--emerald)" }}
                       />
                     </div>
                     <p className="mt-1 text-xs text-gray-500">
-                      {data.colleges.list.filter((c) => c.status === "in_progress").length} in progress
+                      {colleges.list.filter((c) => c.status === "in_progress").length} in progress
                     </p>
                   </div>
                   <Link href="/colleges" className="normal-button whitespace-nowrap">

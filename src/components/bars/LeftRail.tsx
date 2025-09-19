@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/app/redux/hooks";
+import { useAppDispatch } from "@/app/redux/hooks";
+import { logoutUser } from "@/app/redux/features/auth";
+import { useRouter } from "next/navigation";
 
 type SectionKey = "profile" | "family" | "education" | "extracurricular";
 
@@ -24,6 +28,9 @@ function getStored<T>(k: string, fallback: T): T {
 
 export default function LeftRail() {
   const pathname = usePathname();
+  const { user, isAuthenticated } = useAuth();
+  const dispatch = useAppDispatch();
+  const router = useRouter();
 
   // derive completion from localStorage saves for each section
   const [completed, setCompleted] = useState<Record<SectionKey, boolean>>({
@@ -34,32 +41,39 @@ export default function LeftRail() {
   });
 
   useEffect(() => {
-    const prof = getStored<{ values: any }>("pcas:application:profile", { values: {} }).values;
-    const fam  = getStored<{ values: any }>("pcas:application:family", { values: {} }).values;
-    const edu  = getStored<{ values: any }>("pcas:application:education", { values: {} }).values;
-    const ext  = getStored<{ values: any }>("pcas:application:extracurricular", { values: {} }).values;
+    const prof = getStored<{ values: Record<string, unknown> }>("pcas:application:profile", { values: {} }).values;
+    const fam  = getStored<{ values: Record<string, unknown> }>("pcas:application:family", { values: {} }).values;
+    const edu  = getStored<{ values: Record<string, unknown> }>("pcas:application:education", { values: {} }).values;
+    const ext  = getStored<{ values: Record<string, unknown> }>("pcas:application:extracurricular", { values: {} }).values;
 
     setCompleted({
       profile:
-        !!prof?.firstName?.trim() &&
-        !!prof?.lastName?.trim() &&
-        !!prof?.address?.trim() &&
+        !!(prof?.firstName as string)?.trim() &&
+        !!(prof?.lastName as string)?.trim() &&
+        !!(prof?.address as string)?.trim() &&
         !!prof?.primaryLang &&
         !!prof?.citizen &&
-        !!prof?.cnic?.trim() &&
-        !!prof?.gender?.trim() &&
+        !!(prof?.cnic as string)?.trim() &&
+        !!(prof?.gender as string)?.trim() &&
         !!prof?.dob &&
-        !!prof?.maritalStatus?.trim() &&
-        !!prof?.phone?.trim(),
+        !!(prof?.maritalStatus as string)?.trim() &&
+        !!(prof?.phone as string)?.trim(),
       family:
-        !!fam?.fatherName?.trim() && !!fam?.motherName?.trim() && !!fam?.fatherOccupation,
+        !!(fam?.fatherName as string)?.trim() && !!(fam?.motherName as string)?.trim() && !!fam?.fatherOccupation,
       education:
-        !!edu?.matricGrades?.trim() && !!edu?.matricPicName &&
-        !!edu?.fscGrades?.trim()   && !!edu?.fscPicName &&
-        !!edu?.collegeName?.trim(),
-      extracurricular: !!ext?.clubs?.trim(),
+        !!(edu?.matricGrades as string)?.trim() && !!edu?.matricPicName &&
+        !!(edu?.fscGrades as string)?.trim()   && !!edu?.fscPicName &&
+        !!(edu?.collegeName as string)?.trim(),
+      extracurricular: !!(ext?.clubs as string)?.trim(),
     });
   }, []);
+
+  const deriveInitials = (fullName: string) => {
+    const parts = fullName.trim().split(/\s+/);
+    const first = parts[0]?.[0] || "";
+    const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+    return (first + last).toUpperCase() || "U";
+  };
 
   return (
     <aside className="left-rail">
@@ -77,7 +91,6 @@ export default function LeftRail() {
             label="My Pucas Applications"
             active={pathname?.startsWith("/MainPages/")}
           />
-          <SidebarLink href="/colleges" label="My Universities" active={pathname === "/colleges"} />
         </nav>
 
         {/* NEW: My Common Application section (keeps your rail style) */}
@@ -107,19 +120,32 @@ export default function LeftRail() {
 
         <div className="mt-auto space-y-1">
           <SidebarLink href="/settings" label="Settings" active={pathname === "/settings"} />
-          <SidebarLink href="/signout" label="Sign out" active={pathname === "/signout"} />
-          <div
-            className="mt-3 flex items-center gap-3 rounded-xl p-3 text-sm main-card"
-            style={{ width: "100%", margin: 0 }}
-          >
-            <div className="grid h-9 w-9 place-items-center rounded-full" style={{ background: "var(--emerald)", color: "white" }}>
-              RY
+          <SidebarLink 
+            label="Sign out" 
+            onClick={async () => {
+              try {
+                await dispatch(logoutUser()).unwrap();
+                router.push('/');
+              } catch (error) {
+                console.error('Logout failed:', error);
+                router.push('/');
+              }
+            }}
+          />
+          {isAuthenticated && user && (
+            <div
+              className="mt-3 flex items-center gap-3 rounded-xl p-3 text-sm main-card"
+              style={{ width: "100%", margin: 0 }}
+            >
+              <div className="grid h-9 w-9 place-items-center rounded-full" style={{ background: "var(--emerald)", color: "white" }}>
+                {deriveInitials(user.fullName)}
+              </div>
+              <div>
+                <div className="font-medium leading-tight">{user.fullName}</div>
+                <div className="text-xs text-gray-500">{user.email}</div>
+              </div>
             </div>
-            <div>
-              <div className="font-medium leading-tight">Raja Yaseen</div>
-              <div className="text-xs text-gray-500">CAID 47247138</div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </aside>
@@ -130,11 +156,21 @@ function SidebarLink({
   href = "#",
   label,
   active = false,
+  onClick,
 }: {
   href?: string;
   label: string;
   active?: boolean;
+  onClick?: () => void;
 }) {
+  if (onClick) {
+    return (
+      <button onClick={onClick} className={["sidebar-link", "hover-grey", active ? "active" : ""].join(" ")}>
+        <span>{label}</span>
+      </button>
+    );
+  }
+  
   return (
     <Link href={href} className={["sidebar-link", "hover-grey", active ? "active" : ""].join(" ")}>
       <span>{label}</span>

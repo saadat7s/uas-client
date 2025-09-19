@@ -2,73 +2,77 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import logo from '@/public/Logo.png'
 import Footer from '@/components/Footer'
+import { useAuth } from '@/app/redux/hooks'
+import { loginUser, clearError } from '@/app/redux/features/auth'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { isLoading, error, isAuthenticated, dispatch } = useAuth()
   const [showPw, setShowPw] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const canSubmit = email.trim().length > 3 && password.length > 0 && !loading
+  const [rememberMe, setRememberMe] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+
+  // Check for registration success message
+  useEffect(() => {
+    const message = searchParams.get('message')
+    if (message === 'registration-success') {
+      setShowSuccessMessage(true)
+      // Clear the URL parameter
+      const newUrl = window.location.pathname
+      window.history.replaceState(null, '', newUrl)
+      
+      // Hide success message after 10 seconds
+      setTimeout(() => {
+        setShowSuccessMessage(false)
+      }, 10000)
+    }
+  }, [searchParams])
+  
+  // Form validation
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  const canSubmit = isValidEmail && password.length > 0 && !isLoading
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/Dashboard')
+    }
+  }, [isAuthenticated, router])
+
+  // Clear errors when component mounts
+  useEffect(() => {
+    dispatch(clearError())
+  }, [dispatch])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!canSubmit) return
 
-    setLoading(true)
+    // Clear any previous errors
+    dispatch(clearError())
 
-    /* ======================================================
-       🔌 BACKEND INTEGRATION (commented placeholders)
-       ------------------------------------------------------
-       Choose one of the two patterns below and delete the other
-       once your backend engineer provides endpoints.
-
-       Pattern A) Call a REST endpoint
-       ------------------------------------------------------
-       try {
-         const res = await fetch('/api/auth/login', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ email, password }),
-           // credentials: 'include' // if backend sets HTTP-only cookies
-         })
-         if (!res.ok) throw new Error('Invalid credentials')
-
-         // Example response expectations:
-         // { user: {...}, accessToken: '...', refreshToken: '...' }
-         // const data = await res.json()
-         // TODO: store tokens in memory or rely on httpOnly cookies
-
-         // On success, route to dashboard/home
-         // router.replace('/dashboard')
-       } catch (err) {
-         // TODO: surface error toast/UI state
-         console.error(err)
-       } finally {
-         setLoading(false)
-       }
-
-       Pattern B) Server Action (Node runtime)
-       ------------------------------------------------------
-       // 'use server' action example living in the same route folder:
-       // export async function loginAction(formData: FormData) { ... }
-       // await loginAction(new FormData(e.currentTarget))
-       // router.replace('/dashboard')
-       ====================================================== */
-
-    // Temporary UX while backend is not wired
-    setTimeout(() => {
-      setLoading(false)
-      alert('Login submitted (mock) — check console ✅')
-      console.log('payload:', { email, password: '[redacted] ' })
-    }, 400)
+    try {
+      const result = await dispatch(loginUser({ email, password }))
+      
+      if (loginUser.fulfilled.match(result)) {
+        // Login successful, redirect to dashboard
+        router.push('/Dashboard')
+      }
+    } catch (error) {
+      // Error is handled by Redux, just prevent form submission
+      console.error('Login failed:', error)
+    }
   }
 
   return (
-    <>
+    <div className="min-h-dvh flex flex-col">
       <main className="flex-1 center-wrap with-mandala with-minar" role="main">
         <div className="center-content relative z-[1] w-full max-w-[560px]">
           {/* Logo */}
@@ -82,6 +86,31 @@ export default function LoginPage() {
             <p className="title-secondary">Sign in to continue</p>
 
             <form onSubmit={onSubmit} className="mt-6 grid gap-5">
+              {/* Success message */}
+              {showSuccessMessage && (
+                <div className="p-4 rounded-xl bg-green-50 border border-green-200 relative">
+                  <div className="text-sm text-green-700 font-medium pr-8">
+                    ✅ Account created successfully! Please log in to continue.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSuccessMessage(false)}
+                    className="absolute top-2 right-2 text-green-600 hover:text-green-800 p-1"
+                    aria-label="Close message"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              {/* Error display */}
+              {error && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                  <div className="text-sm text-red-700 font-medium">
+                    {error}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[var(--pakistan-green-600)]">
                   Email Address <span className="text-red-500">*</span>
@@ -91,11 +120,18 @@ export default function LoginPage() {
                   autoComplete="email"
                   inputMode="email"
                   placeholder="you@example.com"
-                  className="w-full h-11 rounded-xl border border-emerald-200/70 px-3 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-200/40"
+                  className={`w-full h-11 rounded-xl border px-3 outline-none transition focus:ring-4 ${
+                    email && !isValidEmail 
+                      ? 'border-red-300 focus:border-red-400 focus:ring-red-200/40' 
+                      : 'border-emerald-200/70 focus:border-emerald-400 focus:ring-emerald-200/40'
+                  }`}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
+                {email && !isValidEmail && (
+                  <p className="mt-1 text-xs text-red-600">Please enter a valid email address</p>
+                )}
               </div>
 
               <div>
@@ -124,7 +160,12 @@ export default function LoginPage() {
                 </div>
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <label className="inline-flex items-center gap-2 select-none">
-                    <input type="checkbox" className="accent-[var(--pakistan-green-600)]" />
+                    <input 
+                      type="checkbox" 
+                      className="accent-[var(--pakistan-green-600)]"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                    />
                     Remember me
                   </label>
                   <button type="button" className="link-primary">Forgot password?</button>
@@ -137,11 +178,12 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => router.push('/register/accountcreation')}
                   className="outline-button"
+                  disabled={isLoading}
                 >
                   Create an account
                 </button>
                 <button type="submit" className="normal-button" disabled={!canSubmit}>
-                  {loading ? 'Signing in…' : 'Sign in'}
+                  {isLoading ? 'Signing in…' : 'Sign in'}
                 </button>
               </div>
             </form>
@@ -155,6 +197,6 @@ export default function LoginPage() {
         </div>
       </main>
       <Footer/>
-      </>
+    </div>
   )
 }

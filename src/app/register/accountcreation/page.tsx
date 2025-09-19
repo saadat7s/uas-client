@@ -1,10 +1,12 @@
 'use client'
 
 import Image from 'next/image'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import logo from '@/public/Logo.png'
 import Footer from '@/components/Footer'
+import { useAuth } from '@/app/redux/hooks'
+import { registerUser, clearError, logout, UserRole } from '@/app/redux/features/auth'
 
 // Keep types close to usage for clarity
 interface FormData {
@@ -14,10 +16,12 @@ interface FormData {
   dob: string
   phone: string
   address: string
+  role: UserRole
 }
 
 export default function AccountCreationPage() {
   const router = useRouter()
+  const { isLoading, error, dispatch } = useAuth()
   const [showPw, setShowPw] = useState(false)
   const [data, setData] = useState<FormData>({
     email: '',
@@ -26,7 +30,13 @@ export default function AccountCreationPage() {
     dob: '',
     phone: '',
     address: '',
+    role: UserRole.UNDERGRADUATE,
   })
+
+  // Clear errors when component mounts
+  useEffect(() => {
+    dispatch(clearError())
+  }, [dispatch])
 
   const pw = data.password
   const rules = useMemo(
@@ -41,17 +51,52 @@ export default function AccountCreationPage() {
     [pw]
   )
   const pwOk = Object.values(rules).every(Boolean)
+  
+  // Additional validation
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)
+  const isValidName = data.fullName.trim().length >= 2 && /^[a-zA-Z\s]+$/.test(data.fullName)
+  const isValidPhone = /^[\+]?[1-9][\d]{0,15}$/.test(data.phone.replace(/[\s\-\(\)]/g, ''))
+  const isValidAddress = data.address.trim().length >= 10
+  const isValidDob = data.dob && new Date(data.dob) < new Date()
+  
+  const isFormValid = pwOk && isValidEmail && isValidName && isValidPhone && isValidAddress && isValidDob
 
   const onChange = (k: keyof FormData) =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setData((d) => ({ ...d, [k]: e.target.value }))
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!pwOk) return
-    // TODO: replace with a Server Action or API call
-    console.log('payload:', data)
-    alert('Submitted (check console) ✅')
+    if (!isFormValid) return
+
+    // Clear any previous errors
+    dispatch(clearError())
+
+    try {
+      const result = await dispatch(registerUser(data))
+      
+      if (registerUser.fulfilled.match(result)) {
+        // Registration successful - logout to ensure user needs to login explicitly
+        dispatch(logout())
+        
+        // Clear form data
+        setData({
+          email: '',
+          password: '',
+          fullName: '',
+          dob: '',
+          phone: '',
+          address: '',
+          role: UserRole.UNDERGRADUATE,
+        })
+        
+        // Redirect to Login with success message in URL params
+        router.push('/Login?message=registration-success')
+      }
+    } catch (error) {
+      // Error is handled by Redux, just prevent form submission
+      console.error('Registration failed:', error)
+    }
   }
 
   return (
@@ -151,6 +196,21 @@ export default function AccountCreationPage() {
                   onChange={onChange('dob')}
                   max={new Date().toISOString().slice(0, 10)}
                 />
+
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-[var(--pakistan-green-600)]">
+                    Student Status <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={data.role}
+                    onChange={onChange('role')}
+                    className="w-full h-11 rounded-xl border border-emerald-200/70 px-3 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-200/40 bg-white"
+                  >
+                    <option value={UserRole.UNDERGRADUATE}>Undergraduate Student</option>
+                    <option value={UserRole.GRADUATE}>Graduate Student</option>
+                  </select>
+                </div>
               </fieldset>
 
               {/* Contact details */}
@@ -182,21 +242,31 @@ export default function AccountCreationPage() {
                 />
               </fieldset>
 
+              {/* Error display */}
+              {error && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                  <div className="text-sm text-red-700 font-medium">
+                    {error}
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="mt-2 flex flex-col sm:flex-row sm:justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => router.back()}
                   className="outline-button"
+                  disabled={isLoading}
                 >
                   Back
                 </button>
                 <button
                   type="submit"
-                  disabled={!pwOk}
+                  disabled={!isFormValid || isLoading}
                   className="normal-button"
                 >
-                  Create account
+                  {isLoading ? 'Creating account...' : 'Create account'}
                 </button>
               </div>
             </form>
