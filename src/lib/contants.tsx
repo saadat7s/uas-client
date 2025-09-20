@@ -11,7 +11,7 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 export const SUBSECTIONS: Record<SectionKey, string[]> = {
   // From your spec/image
   profile: [
-    "Personal Information",
+    "Legal name",        // UPDATED: was "Personal Information"
     "Address",
     "Language",
     "Demographics",

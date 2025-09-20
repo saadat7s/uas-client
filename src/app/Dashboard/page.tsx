@@ -62,9 +62,7 @@ export default function DashboardPage() {
     { key: "profile", label: "Profile", completed: checkSectionComplete("profile") },
     { key: "family", label: "Family", completed: checkSectionComplete("family") },
     { key: "education", label: "Education", completed: checkSectionComplete("education") },
-    { key: "testing", label: "Testing", completed: checkSectionComplete("testing") },
-    { key: "activities", label: "Activities", completed: checkSectionComplete("activities") },
-    { key: "writing", label: "Writing", completed: checkSectionComplete("writing") },
+    { key: "extracurricular", label: "Extracurricular", completed: checkSectionComplete("extracurricular") },
   ];
 
   // User's colleges - would be fetched from user's college applications

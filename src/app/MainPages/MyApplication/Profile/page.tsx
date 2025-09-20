@@ -16,10 +16,12 @@ import { useAuth } from "@/app/redux/hooks";
 import { useProfile } from "@/app/redux/hooks/useProfile";
 import { useApplication } from "@/app/redux/hooks/useApplication";
 import ServerStatus from "@/components/debug/ServerStatus";
+import SavePopup from "@/components/ui/SavePopup";
 
 /* ---------- helpers ---------- */
 const SECTION_KEY = "profile" as const;
-const getStorageKey = (userId?: string) => `pcas:application:profile:${userId || 'anonymous'}`;
+/* ⬇️ use the same key style as Family so LeftRail sees it */
+const storageKey = "pcas:application:profile";
 
 type Values = {
   firstName: string;
@@ -135,10 +137,13 @@ export default function ProfilePage() {
 
   const [mounted, setMounted] = useState(false);
   const [values, setValues] = useState<Values>(DEFAULTS);
-  const [status, setStatus] = useState<
-    "not_started" | "in_progress" | "complete"
-  >("not_started");
+  const [status, setStatus] = useState<"not_started" | "in_progress" | "complete">("not_started");
   const [renderKey, setRenderKey] = useState(0);
+
+  // Popup state
+  const [popupOpen, setPopupOpen] = useState(false);
+  const [continueAfterSave, setContinueAfterSave] = useState(false);
+  const navigateTimer = useRef<number | null>(null); // timer id so we can cancel if user clicks OK
 
   useEffect(() => setMounted(true), []);
 
@@ -149,17 +154,24 @@ export default function ProfilePage() {
     }
   }, [isAuthenticated, router]);
 
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (navigateTimer.current) {
+        clearTimeout(navigateTimer.current);
+        navigateTimer.current = null;
+      }
+    };
+  }, []);
+
   // Load profile data from Redux and local storage
   const loadProfileData = useCallback(async () => {
     if (!user || !isAuthenticated) return;
     
     try {
-      // Try to load from Redux/Server first
       if (!profile) {
         loadProfile();
       }
-      
-      // If we have profile data from Redux, use it
       if (profile) {
         const loadedValues: Values = {
           firstName: profile.firstName || '',
@@ -180,35 +192,20 @@ export default function ProfilePage() {
         setStatus("complete");
         return;
       }
-      
+
       // Fallback to local storage
-      const storageKey = getStorageKey(user.id);
-      const raw = localStorage.getItem(storageKey);
-      let loadedValues = { ...DEFAULTS };
-      
+      // ⬇️ read new flat key; if not found, also try legacy per-user key once
+      const legacyKey = `pcas:application:profile:${user.id}`;
+      const raw = localStorage.getItem(storageKey) ?? localStorage.getItem(legacyKey);
       if (raw) {
         const parsed = JSON.parse(raw) as {
           values: Values;
           status?: string;
           savedAt?: string;
         };
-        loadedValues = { ...DEFAULTS, ...parsed.values };
+        setValues({ ...DEFAULTS, ...parsed.values });
         setStatus((parsed.status as "not_started" | "in_progress" | "complete") ?? "in_progress");
-      } else {
-        // Pre-populate with user data if no saved data exists
-        const nameParts = user.fullName.split(' ');
-        loadedValues = {
-          ...DEFAULTS,
-          firstName: nameParts[0] || '',
-          lastName: nameParts[nameParts.length - 1] || '',
-          middleName: nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '',
-          address: user.address || '',
-          phone: user.phone || '',
-          dob: user.dob ? new Date(user.dob).toISOString().split('T')[0] : '',
-        };
       }
-      
-      setValues(loadedValues);
     } catch (error) {
       console.error('Error loading profile data:', error);
     } finally {
@@ -216,7 +213,6 @@ export default function ProfilePage() {
     }
   }, [user, isAuthenticated, profile, loadProfile]);
 
-  // Load data when component mounts or profile changes
   useEffect(() => {
     loadProfileData();
   }, [loadProfileData]);
@@ -238,30 +234,21 @@ export default function ProfilePage() {
     }));
   };
 
-  // SubPanel completion (fill dots)
+  // SubPanel completion (aligned with constants)
   const completed = useMemo(() => {
     const done = new Set<string>();
     const v = values;
 
-    if (!!v.firstName.trim() && !!v.lastName.trim())
-      done.add(slug("Personal Information"));
-    if (!!v.address.trim()) done.add(slug("Address"));
-    if (!!v.primaryLang) done.add(slug("Language"));
-    if (!!v.citizen) done.add(slug("Demographics"));
+    if (v.firstName.trim() && v.lastName.trim()) done.add(slug("Legal name"));
+    if (v.address.trim()) done.add(slug("Address"));
+    if (v.primaryLang) done.add(slug("Language"));
+    if (v.citizen) done.add(slug("Demographics"));
 
-    // New groups
-    const photoOk =
-      !!v.photoName &&
-      v.photoBytes > 0 &&
-      v.photoBytes <= 5 * 1024 * 1024;
+    const photoOk = !!v.photoName && v.photoBytes > 0 && v.photoBytes <= 5 * 1024 * 1024;
     if (photoOk) done.add(slug("Photo & IDs"));
 
     const contactOk =
-      !!v.cnic.trim() &&
-      !!v.gender.trim() &&
-      !!v.dob &&
-      !!v.maritalStatus.trim() &&
-      !!v.phone.trim();
+      !!v.cnic.trim() && !!v.gender.trim() && !!v.dob && !!v.maritalStatus.trim() && !!v.phone.trim();
     if (contactOk) done.add(slug("Contact Details"));
 
     return done;
@@ -274,6 +261,11 @@ export default function ProfilePage() {
       
       try {
         const fd = new FormData(e.currentTarget);
+
+        // Detect "Save & Continue" via submit button name/value
+        const isContinue = fd.get("submitAndContinue") === "1";
+        setContinueAfterSave(isContinue);
+
         const payload = asStringMap(fd);
         const next: Values = {
           ...values,
@@ -298,12 +290,10 @@ export default function ProfilePage() {
           next.photoBytes > 0 &&
           next.photoBytes <= 5 * 1024 * 1024;
 
-        const nextStatus: typeof status = meetsRequired
-          ? "complete"
-          : "in_progress";
+        const nextStatus: typeof status = meetsRequired ? "complete" : "in_progress";
         setStatus(nextStatus);
 
-        // Prepare data for Redux/Server
+        // Save to Redux/Server (unchanged)
         const profileData = {
           firstName: next.firstName,
           middleName: next.middleName,
@@ -319,33 +309,52 @@ export default function ProfilePage() {
           photoName: next.photoName,
           photoBytes: next.photoBytes,
         };
-
-        // Save to Redux/Server
         saveProfileData(profileData);
 
-        // Also save to local storage as backup
+        // Also save to local storage as backup — using flat key so LeftRail finds it
         const now = new Date();
-        const storageKey = getStorageKey(user?.id);
         try {
           localStorage.setItem(
             storageKey,
-            JSON.stringify({
-              values: next,
-              status: nextStatus,
-              savedAt: now.toISOString(),
-            })
+            JSON.stringify({ values: next, status: nextStatus, savedAt: now.toISOString() })
           );
         } catch (localError) {
           console.error('Failed to save to local storage:', localError);
         }
         
         setRenderKey((k) => k + 1);
+
+        // Show popup for both buttons
+        setPopupOpen(true);
+
+        // If "Save & Continue", auto-redirect after 5s
+        if (isContinue) {
+          if (navigateTimer.current) {
+            clearTimeout(navigateTimer.current);
+          }
+          navigateTimer.current = window.setTimeout(() => {
+            setPopupOpen(false);
+            router.push("/MainPages/MyApplication/Family");
+          }, 5000);
+        }
       } catch (error) {
         console.error('Error saving profile:', error);
       }
     },
-    [values, clearProfileError, saveProfileData, user?.id]
+    [values, clearProfileError, saveProfileData, user?.id, router, status]
   );
+
+  // When user presses OK on the popup:
+  const handlePopupClose = () => {
+    setPopupOpen(false);
+    if (navigateTimer.current) {
+      clearTimeout(navigateTimer.current);
+      navigateTimer.current = null;
+    }
+    if (continueAfterSave) {
+      router.push("/MainPages/MyApplication/Family"); // absolute route
+    }
+  };
 
   // Show loading while checking authentication
   if (isLoading) {
@@ -358,54 +367,34 @@ export default function ProfilePage() {
     );
   }
 
-  // Don't render if not authenticated
-  if (!isAuthenticated || !user) {
-    return null;
-  }
+  if (!isAuthenticated || !user) return null;
 
   return (
     <main className="center-wrap with-mandala with-minar" role="main">
       <div className="dashboard-grid app-grid with-subpanel">
         <LeftRail />
-        <SubPanel
-          sectionLabel={sectionLabel}
-          subsections={subsections}
-          completed={completed}
-        />
+        <SubPanel sectionLabel={sectionLabel} subsections={subsections} completed={completed} />
 
         <section className="center-rail app-center">
           <section className="main-card editor-card thin-scrollbars">
             <div className="breadcrumb mb-2">
-              My Common Application <span className="mx-1">|</span>{" "}
-              {sectionLabel}
+              My Common Application <span className="mx-1">|</span> {sectionLabel}
             </div>
 
             <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm pb-3 mb-3 border-b border-black/10">
               <div className="flex items-start justify-between">
                 <div>
-                  <h1 className="text-3xl font-semibold leading-tight">
-                    {sectionLabel}
-                  </h1>
+                  <h1 className="text-3xl font-semibold leading-tight">{sectionLabel}</h1>
                   <div className="mt-2 text-sm text-gray-700 flex items-center gap-3">
                     <span className="status-dot" />
-                    {status === "in_progress"
-                      ? "In progress"
-                      : status === "complete"
-                      ? "Complete"
-                      : "Not started"}
+                    {status === "in_progress" ? "In progress" : status === "complete" ? "Complete" : "Not started"}
                     <span suppressHydrationWarning>
-                      {mounted && lastSaved
-                        ? `· Saved ${new Date(lastSaved).toLocaleTimeString()}`
-                        : null}
+                      {mounted && lastSaved ? `· Saved ${new Date(lastSaved).toLocaleTimeString()}` : null}
                     </span>
                     {isLoading && <span className="text-blue-600">Saving...</span>}
                   </div>
                   <ServerStatus className="mt-2" />
-                  {error && (
-                    <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">
-                      {error}
-                    </div>
-                  )}
+                  {error && <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">{error}</div>}
                 </div>
                 <Link href="#" className="outline-button shrink-0">
                   Preview
@@ -414,42 +403,16 @@ export default function ProfilePage() {
             </div>
 
             {/* FORM */}
-            <form
-              key={mounted ? renderKey : "ssr"}
-              className="space-y-7"
-              onSubmit={onSubmit}
-            >
-              {/* Personal Information */}
-              <SectionAnchor
-                id={slug("Personal Information")}
-                title="Legal name"
-              />
-              <TextField
-                name="firstName"
-                label="First Name *"
-                required
-                value={values.firstName}
-              />
-              <TextField
-                name="middleName"
-                label="Middle Name"
-                value={values.middleName}
-              />
-              <TextField
-                name="lastName"
-                label="Last Name *"
-                required
-                value={values.lastName}
-              />
+            <form key={mounted ? renderKey : "ssr"} className="space-y-7" onSubmit={onSubmit}>
+              {/* Legal name */}
+              <SectionAnchor id={slug("Legal name")} title="Legal name *" />
+              <TextField name="firstName" label="First Name" required value={values.firstName} />
+              <TextField name="middleName" label="Middle Name" value={values.middleName} />
+              <TextField name="lastName" label="Last Name" required value={values.lastName} />
 
               {/* Address */}
               <SectionAnchor id={slug("Address")} title="Address *" />
-              <TextField
-                name="address"
-                label="Street address"
-                required
-                value={values.address}
-              />
+              <TextField name="address" label="Street address" required value={values.address} />
 
               {/* Language */}
               <SectionAnchor id={slug("Language")} title="Primary language *" />
@@ -465,10 +428,7 @@ export default function ProfilePage() {
               />
 
               {/* Demographics */}
-              <SectionAnchor
-                id={slug("Demographics")}
-                title="Demographics *"
-              />
+              <SectionAnchor id={slug("Demographics")} title="Demographics *" />
               <RadioGroup
                 name="citizen"
                 label="Demographic"
@@ -480,19 +440,11 @@ export default function ProfilePage() {
               />
 
               {/* Photo + IDs */}
-              <SectionAnchor
-                id={slug("Photo & IDs")}
-                title="Profile picture & IDs"
-              />
+              <SectionAnchor id={slug("Photo & IDs")} title="Profile picture & IDs" />
               <label className="text-sm font-semibold block mb-1">
                 Profile Picture (4×4, blue/white background, ≤ 5 MB) *
               </label>
-              <input
-                type="file"
-                accept="image/*"
-                className="w-full rounded-xl border px-3 py-2"
-                onChange={onPhoto}
-              />
+              <input type="file" accept="image/*" className="w-full rounded-xl border px-3 py-2" onChange={onPhoto} />
               {values.photoName ? (
                 <p className="text-xs text-gray-500 mt-1">
                   {values.photoName} ({Math.round(values.photoBytes / 1024)} KB)
@@ -500,10 +452,7 @@ export default function ProfilePage() {
               ) : null}
 
               {/* Contact Details */}
-              <SectionAnchor
-                id={slug("Contact Details")}
-                title="Contact Details"
-              />
+              <SectionAnchor id={slug("Contact Details")} title="Contact Details" />
               <TextField name="cnic" label="CNIC *" required value={values.cnic} />
               <SelectField
                 name="gender"
@@ -535,20 +484,11 @@ export default function ProfilePage() {
                   { value: "Unmarried", label: "Unmarried" },
                 ]}
               />
-              <TextField
-                name="phone"
-                label="Phone Number *"
-                required
-                value={values.phone}
-              />
+              <TextField name="phone" label="Phone Number *" required value={values.phone} />
 
               <div className="pt-3 pb-2">
                 <div className="flex gap-3">
-                  <button 
-                    type="submit" 
-                    className="normal-button"
-                    disabled={isLoading}
-                  >
+                  <button type="submit" className="normal-button" disabled={isLoading}>
                     {isLoading ? 'Saving...' : 'Save'}
                   </button>
                   <button
@@ -567,6 +507,9 @@ export default function ProfilePage() {
         </section>
         <RightRail />
       </div>
+
+      {/* Popup visible on both Save & Save & Continue */}
+      <SavePopup open={popupOpen} onClose={handlePopupClose} />
     </main>
   );
 }

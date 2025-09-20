@@ -12,7 +12,7 @@ import SectionAnchor from "@/components/ui/SectionAnchor";
 import TextField from "@/components/form/TextField";
 import SelectField from "@/components/form/SelectField";
 
-import { SECTION_LABEL, SUBSECTIONS, slug } from "@/lib/constants";
+import { SECTION_LABEL, SUBSECTIONS, slug } from "@/lib/contants";
 import { useAuth } from "@/app/redux/hooks";
 import { useFamily } from "@/app/redux/hooks/useFamily";
 

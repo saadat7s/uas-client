@@ -603,3 +603,20 @@ body {
   border-color: var(--pakistan-green);
   border-style: solid;
 }
+
+
+/* ================================
+   POP UP ELEMENTS
+   ================================ */
+   
+   @keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fadeIn { animation: fadeIn var(--t-med); }
+.animate-popIn { animation: popIn var(--t-med); }
