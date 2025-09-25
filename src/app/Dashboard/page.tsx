@@ -134,7 +134,7 @@ export default function DashboardPage() {
               <nav className="space-y-1">
                 <SidebarLink href="/Dashboard" label="Dashboard" active />
                 <SidebarLink href="/MainPages/MyApplication/Profile" label="My PCAS Application" />
-                <SidebarLink href="/colleges" label="My Colleges" />
+                <SidebarLink href="/universities/my" label="My universities" />
               </nav>
 
               <div className="mt-6">
@@ -142,7 +142,6 @@ export default function DashboardPage() {
                   Explore
                 </p>
                 <nav className="space-y-1">
-                  <SidebarLink href="/universities/my" label="My universities" />
                   <SidebarLink href="/universities/search" label="University search" />
                 </nav>
               </div>
