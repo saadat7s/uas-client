@@ -8,6 +8,8 @@ import { logoutUser } from "@/app/redux/features/auth";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/redux/hooks";
 import { useEffect } from "react";
+import { useSelector } from "react-redux";
+import { canSendApplication, selectPicks, selectCatalog } from "@/app/redux/slices/universitiesSlice";
 
 /** Types removed as static data is used without typings for now */
 
@@ -33,6 +35,9 @@ export default function DashboardPage() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useAuth();
+  const appReady = useSelector((s) => canSendApplication(s));
+  const picks = useSelector(selectPicks);
+  const catalog = useSelector(selectCatalog);
   
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -105,11 +110,10 @@ export default function DashboardPage() {
 
   const handleSignOut = async () => {
     try {
-      await dispatch(logoutUser());
-      router.push('/'); // Redirect to home page after logout
+      await (dispatch as any)(logoutUser()).unwrap();
+      router.push('/');
     } catch (error) {
-      console.error('Logout failed:', error);
-      // Even if logout fails on server, we still redirect to clear the UI
+      console.error('Logout failed:', error as any);
       router.push('/');
     }
   };
@@ -138,7 +142,8 @@ export default function DashboardPage() {
                   Explore
                 </p>
                 <nav className="space-y-1">
-                  <SidebarLink href="/search" label="University search" />
+                  <SidebarLink href="/universities/my" label="My universities" />
+                  <SidebarLink href="/universities/search" label="University search" />
                 </nav>
               </div>
 
@@ -171,9 +176,9 @@ export default function DashboardPage() {
                 </p>
               </header>
 
-              {/* My Common Application (chips) */}
+              {/* My PCAS Application (chips) */}
               <section className="py-4 border-b border-black/10">
-                <h4 className="text-lg font-semibold mb-3">My Common Application</h4>
+                <h4 className="text-lg font-semibold mb-3">My PCAS Application</h4>
                 <div className="chips">
                   {sections.map((s) => (
                     <Link key={s.key} href={`/MainPages/MyApplication/${s.key === 'activities' ? 'Extracurricular' : s.key.charAt(0).toUpperCase() + s.key.slice(1)}`} className="chip">
@@ -197,40 +202,60 @@ export default function DashboardPage() {
 
               {/* My Colleges */}
               <section className="py-4 border-b border-black/10">
-                <h4 className="text-lg font-semibold mb-3">My Colleges</h4>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-sm text-gray-600">
-                      {colleges.list.length} college{colleges.list.length !== 1 ? 's' : ''} on my list
-                    </p>
-                    <div className="mt-2 h-2 w-56 overflow-hidden rounded-full bg-gray-200">
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: colleges.list.length > 0 ? `33%` : '0%', background: "var(--emerald)" }}
-                      />
+                <h4 className="text-lg font-semibold mb-3">My Universities</h4>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-600">{picks.length} on my list</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {picks.map(p => {
+                        const u = catalog[p.uniId];
+                        return (
+                          <span key={p.uniId} className="px-2.5 py-1 rounded-full bg-green-50 border text-emerald-800 text-sm">
+                            {u?.name}
+                          </span>
+                        );
+                      })}
+                      {picks.length === 0 && (
+                        <span className="text-sm text-gray-500">Start by adding from search.</span>
+                      )}
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {colleges.list.filter((c) => c.status === "in_progress").length} in progress
-                    </p>
                   </div>
-                  <Link href="/colleges" className="normal-button whitespace-nowrap">
-                    Show colleges
-                  </Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Link href="/universities/my" className="outline-button whitespace-nowrap">My Universities</Link>
+                    <Link href="/universities/search" className="outline-button whitespace-nowrap">Search</Link>
+                    <Link href="/checkout" className={`normal-button whitespace-nowrap ${appReady ? '' : 'disabled:pointer-events-none opacity-60'}`} aria-disabled={!appReady}>Send Application</Link>
+                  </div>
                 </div>
               </section>
 
               {/* Deadlines */}
               <section className="py-4">
                 <h4 className="text-lg font-semibold mb-2">Deadlines</h4>
-                <p className="text-sm text-gray-600">
-                  To set deadlines, go to the application questions for each college on your list and
-                  select a term and admission plan.
-                </p>
-                <div className="mt-4">
-                  <Link href="/colleges" className="outline-button">
-                    Go to My Colleges
-                  </Link>
-                </div>
+                {picks.length === 0 ? (
+                  <p className="text-sm text-gray-600">Add universities to see upcoming deadlines.</p>
+                ) : (
+                  <ul className="divide-y">
+                    {picks.map((p, i) => {
+                      const u = catalog[p.uniId];
+                      if (!u) return null;
+                      return (
+                        <li key={i} className="py-3 flex items-center justify-between">
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{u.name}</div>
+                            {u.deadlineISO ? (
+                              <div className="text-sm text-gray-600">Deadline: {new Date(u.deadlineISO).toLocaleDateString()}</div>
+                            ) : (
+                              <div className="text-sm text-gray-500">Deadline not set</div>
+                            )}
+                          </div>
+                          {u.applicationFeePKR && (
+                            <span className="text-sm text-gray-700">Fee: {Math.round(u.applicationFeePKR/1000)}k PKR</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </section>
             </section>
           </section>
@@ -261,7 +286,7 @@ export default function DashboardPage() {
                 <details className="faq-item">
                   <summary>I already submitted, can I change answers?</summary>
                   <div className="faq-body">
-                    You can return any time and change your answers in <em>My Common Application</em>.
+                    You can return any time and change your answers in <em>My PCAS Application</em>.
                     Some colleges might lock certain items—check each college section.
                   </div>
                 </details>

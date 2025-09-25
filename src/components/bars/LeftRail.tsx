@@ -87,16 +87,16 @@ export default function LeftRail() {
         <nav className="space-y-1">
           <SidebarLink href="/Dashboard" label="Dashboard" active={pathname === "/Dashboard"} />
           <SidebarLink
-            href="/MainPages/Profile"
-            label="My Pucas Applications"
+            href="/MainPages/MyApplication/Profile"
+            label="My PCAS Application"
             active={pathname?.startsWith("/MainPages/")}
           />
         </nav>
 
-        {/* NEW: My Common Application section (keeps your rail style) */}
+        {/* My PCAS Application section (keeps your rail style) */}
         <div className="mt-4">
           <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-            My Common Application
+            My PCAS Application
           </p>
           <nav className="space-y-1">
             {SECTIONS.map((s) => (
@@ -114,7 +114,8 @@ export default function LeftRail() {
         <div className="mt-6">
           <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Explore</p>
           <nav className="space-y-1">
-            <SidebarLink href="/search" label="University search" active={pathname === "/search"} />
+            <SidebarLink href="/universities/my" label="My universities" active={pathname === "/universities/my"} />
+            <SidebarLink href="/universities/search" label="University search" active={pathname === "/universities/search"} />
           </nav>
         </div>
 
@@ -124,7 +125,7 @@ export default function LeftRail() {
             label="Sign out" 
             onClick={async () => {
               try {
-                await dispatch(logoutUser()).unwrap();
+                await (dispatch as any)(logoutUser());
                 router.push('/');
               } catch (error) {
                 console.error('Logout failed:', error);

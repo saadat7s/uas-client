@@ -5,6 +5,7 @@ import { clearAllFamilyData } from '../features/family';
 import { clearAllEducationData } from '../features/education';
 import { clearAllExtracurricularData } from '../features/extracurricular';
 import { resetApplication } from '../features/application';
+import { resetUniversities } from '../slices/universitiesSlice';
 
 export const clearDataOnLogout: Middleware<{}, RootState> = (store) => (next) => (action) => {
   // Check if the action is a logout action
@@ -15,6 +16,7 @@ export const clearDataOnLogout: Middleware<{}, RootState> = (store) => (next) =>
     store.dispatch(clearAllEducationData());
     store.dispatch(clearAllExtracurricularData());
     store.dispatch(resetApplication());
+    store.dispatch(resetUniversities());
   }
   
   return next(action);
