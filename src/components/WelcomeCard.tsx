@@ -20,14 +20,14 @@ export default function WelcomeCard() {
 
       <p className="text-gray-600 text-sm text-center mb-6">
         Already have an account?
-        <a href="/Login" className="link-primary ml-1">Go to the login page</a>
+        <a href="/user/Login" className="link-primary ml-1">Go to the login page</a>
       </p>
 
       <div className="option-group">
         <OptionRow
           label="Create Student Account"
           note="For both undergraduate and graduate programs · انڈرگریجویٹ اور گریجویٹ پروگرام"
-          onClick={() => router.push("/register/accountcreation")}
+          onClick={() => router.push("/user/register/accountcreation")}
         />
       </div>
     </section>

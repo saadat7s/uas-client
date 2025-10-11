@@ -150,7 +150,7 @@ export default function ProfilePage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push('/Login');
+      router.push('/user/Login');
     }
   }, [isAuthenticated, router]);
 
@@ -334,7 +334,7 @@ export default function ProfilePage() {
           }
           navigateTimer.current = window.setTimeout(() => {
             setPopupOpen(false);
-            router.push("/MainPages/MyApplication/Family");
+            router.push("/user/MainPages/MyApplication/Family");
           }, 5000);
         }
       } catch (error) {
@@ -352,7 +352,7 @@ export default function ProfilePage() {
       navigateTimer.current = null;
     }
     if (continueAfterSave) {
-      router.push("/MainPages/MyApplication/Family"); // absolute route
+      router.push("/user/MainPages/MyApplication/Family"); // absolute route
     }
   };
 
@@ -378,7 +378,7 @@ export default function ProfilePage() {
         <section className="center-rail app-center">
           <section className="main-card editor-card thin-scrollbars">
             <div className="breadcrumb mb-2">
-              My Common Application <span className="mx-1">|</span> {sectionLabel}
+              My Pcas Application <span className="mx-1">|</span> {sectionLabel}
             </div>
 
             <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm pb-3 mb-3 border-b border-black/10">

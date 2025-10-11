@@ -42,7 +42,7 @@ export default function DashboardPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/Login');
+      router.push('/user/Login');
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -132,9 +132,9 @@ export default function DashboardPage() {
               </div>
 
               <nav className="space-y-1">
-                <SidebarLink href="/Dashboard" label="Dashboard" active />
-                <SidebarLink href="/MainPages/MyApplication/Profile" label="My PCAS Application" />
-                <SidebarLink href="/universities/my" label="My universities" />
+                <SidebarLink href="/user/Dashboard" label="Dashboard" active />
+                <SidebarLink href="/user/MainPages/MyApplication/Profile" label="My PCAS Application" />
+                <SidebarLink href="/user/universities/my" label="My universities" />
               </nav>
 
               <div className="mt-6">
@@ -142,12 +142,12 @@ export default function DashboardPage() {
                   Explore
                 </p>
                 <nav className="space-y-1">
-                  <SidebarLink href="/universities/search" label="University search" />
+                  <SidebarLink href="/user/universities/search" label="University search" />
                 </nav>
               </div>
 
               <div className="mt-auto space-y-1">
-                <SidebarLink href="/settings" label="Settings" />
+                <SidebarLink href="/user/settings" label="Settings" />
                 <SidebarLink label="Sign out" onClick={handleSignOut} />
                 <div className="mt-3 flex items-center gap-3 rounded-xl p-3 text-sm main-card" style={{ width: "100%", margin: 0 }}>
                   <div className="grid h-9 w-9 place-items-center rounded-full" style={{ background: "var(--emerald)", color: "white" }}>
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                 <h4 className="text-lg font-semibold mb-3">My PCAS Application</h4>
                 <div className="chips">
                   {sections.map((s) => (
-                    <Link key={s.key} href={`/MainPages/MyApplication/${s.key === 'activities' ? 'Extracurricular' : s.key.charAt(0).toUpperCase() + s.key.slice(1)}`} className="chip">
+                    <Link key={s.key} href={`/user/MainPages/MyApplication/${s.key === 'activities' ? 'Extracurricular' : s.key.charAt(0).toUpperCase() + s.key.slice(1)}`} className="chip">
                       {/* add a subtle status dot before label */}
                       <span
                         className={[
@@ -220,9 +220,9 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <Link href="/universities/my" className="outline-button whitespace-nowrap">My Universities</Link>
-                    <Link href="/universities/search" className="outline-button whitespace-nowrap">Search</Link>
-                    <Link href="/checkout" className={`normal-button whitespace-nowrap ${appReady ? '' : 'disabled:pointer-events-none opacity-60'}`} aria-disabled={!appReady}>Send Application</Link>
+                    <Link href="/user/universities/my" className="outline-button whitespace-nowrap">My Universities</Link>
+                    <Link href="/user/universities/search" className="outline-button whitespace-nowrap">Search</Link>
+                    <Link href="/user/checkout" className={`normal-button whitespace-nowrap ${appReady ? '' : 'disabled:pointer-events-none opacity-60'}`} aria-disabled={!appReady}>Send Application</Link>
                   </div>
                 </div>
               </section>

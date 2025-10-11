@@ -25,7 +25,7 @@ export default function MyUniversitiesPage() {
 
           <div className="mt-4 grid gap-4">
             {picks.length === 0 && (
-              <div className="text-gray-600">No universities added yet. Go to <a className="link-primary" href="/universities/search">Search</a> to pick up to 5.</div>
+              <div className="text-gray-600">No universities added yet. Go to <a className="link-primary" href="/user/universities/search">Search</a> to pick up to 5.</div>
             )}
 
             {picks.map(p => {
@@ -121,7 +121,7 @@ export default function MyUniversitiesPage() {
 
             {/* CTA row */}
             <div className="mt-6 flex justify-end">
-              <a href="/checkout" className="normal-button">Send Application</a>
+              <a href="/user/checkout" className="normal-button">Send Application</a>
             </div>
           </div>
         </section>

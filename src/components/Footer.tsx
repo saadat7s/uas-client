@@ -15,7 +15,7 @@ export default function Footer() {
         <a href="#" className="footer-link">Privacy policy</a>
       </nav>
 
-      <small>© 2025 Pakistan Education Portal</small>
+      <small>© 2025 Pakistan Centralized Admission System</small>
     </footer>
   );
 }

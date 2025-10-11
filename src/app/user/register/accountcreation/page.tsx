@@ -91,7 +91,7 @@ export default function AccountCreationPage() {
         })
         
         // Redirect to Login with success message in URL params
-        router.push('/Login?message=registration-success')
+        router.push('/user/Login?message=registration-success')
       }
     } catch (error) {
       // Error is handled by Redux, just prevent form submission
@@ -273,7 +273,7 @@ export default function AccountCreationPage() {
 
             <p className="mt-6 text-center text-sm text-gray-600">
               Already have an account?
-              <a href="/Login" className="link-primary ml-1">
+              <a href="/user/Login" className="link-primary ml-1">
                 Go to the login page
               </a>
             </p>

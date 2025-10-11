@@ -42,7 +42,7 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/Dashboard')
+      router.push('/user/Dashboard')
     }
   }, [isAuthenticated, router])
 
@@ -63,7 +63,7 @@ export default function LoginPage() {
       
       if (loginUser.fulfilled.match(result)) {
         // Login successful, redirect to dashboard
-        router.push('/Dashboard')
+        router.push('/user/Dashboard')
       }
     } catch (error) {
       // Error is handled by Redux, just prevent form submission

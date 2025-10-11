@@ -27,8 +27,8 @@ export default function CheckoutPage() {
           <header className="mb-4 flex items-center justify-between">
             <h2 className="title-primary text-left">Checkout</h2>
             <div className="flex gap-2">
-              <Link href="/Dashboard" className="outline-button">Back to Dashboard</Link>
-              <Link href="/universities/my" className="outline-button">Back to My Universities</Link>
+              <Link href="/user/Dashboard" className="outline-button">Back to Dashboard</Link>
+              <Link href="/user/universities/my" className="outline-button">Back to My Universities</Link>
             </div>
           </header>
 

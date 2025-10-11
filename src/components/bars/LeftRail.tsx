@@ -11,10 +11,10 @@ import { useRouter } from "next/navigation";
 type SectionKey = "profile" | "family" | "education" | "extracurricular";
 
 const SECTIONS: { key: SectionKey; label: string; href: string }[] = [
-  { key: "profile",        label: "Profile",         href: "/MainPages/MyApplication/Profile" },
-  { key: "family",         label: "Family",          href: "/MainPages/MyApplication/Family" },
-  { key: "education",      label: "Education",       href: "/MainPages/MyApplication/Education" },
-  { key: "extracurricular",label: "Extracurricular", href: "/MainPages/MyApplication/Extracurricular" },
+  { key: "profile",        label: "Profile",         href: "/user/MainPages/MyApplication/Profile" },
+  { key: "family",         label: "Family",          href: "/user/MainPages/MyApplication/Family" },
+  { key: "education",      label: "Education",       href: "/user/MainPages/MyApplication/Education" },
+  { key: "extracurricular",label: "Extracurricular", href: "/user/MainPages/MyApplication/Extracurricular" },
 ];
 
 function getStored<T>(k: string, fallback: T): T {
@@ -85,9 +85,9 @@ export default function LeftRail() {
         </div>
 
         <nav className="space-y-1">
-          <SidebarLink href="/Dashboard" label="Dashboard" active={pathname === "/Dashboard"} />
+          <SidebarLink href="/user/Dashboard" label="Dashboard" active={pathname === "/user/Dashboard"} />
           <SidebarLink
-            href="/MainPages/MyApplication/Profile"
+            href="/user/MainPages/MyApplication/Profile"
             label="My PCAS Application"
             active={pathname?.startsWith("/MainPages/")}
           />
@@ -114,13 +114,13 @@ export default function LeftRail() {
         <div className="mt-6">
           <p className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Explore</p>
           <nav className="space-y-1">
-            <SidebarLink href="/universities/my" label="My universities" active={pathname === "/universities/my"} />
-            <SidebarLink href="/universities/search" label="University search" active={pathname === "/universities/search"} />
+            <SidebarLink href="/user/universities/my" label="My universities" active={pathname === "/user/universities/my"} />
+            <SidebarLink href="/user/universities/search" label="University search" active={pathname === "/user/universities/search"} />
           </nav>
         </div>
 
         <div className="mt-auto space-y-1">
-          <SidebarLink href="/settings" label="Settings" active={pathname === "/settings"} />
+          <SidebarLink href="/user/settings" label="Settings" active={pathname === "/user/settings"} />
           <SidebarLink 
             label="Sign out" 
             onClick={async () => {
