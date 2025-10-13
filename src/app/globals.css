@@ -620,3 +620,33 @@ body {
 
 .animate-fadeIn { animation: fadeIn var(--t-med); }
 .animate-popIn { animation: popIn var(--t-med); }
+
+
+/* Brandful but professional app background */
+.app-shell-bg {
+  background:
+    radial-gradient(1200px 600px at -10% -10%, var(--mint-100), transparent 60%),
+    linear-gradient(180deg, #ffffff, #f8fafc);
+}
+
+/* Glassy topbar with a fixed height (prevents the giant gap) */
+.topbar-glass {
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+  box-shadow: 0 1px 0 rgba(2, 84, 60, 0.06);
+}
+
+/* Sidebar links */
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .625rem .75rem;
+  border-radius: .75rem;
+  font-weight: 500;
+  color: #0f172a; /* slate-900 */
+}
+.nav-link:hover {
+  background: #f1f5f9; /* slate-100 */
+}

@@ -1,383 +1,421 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { AdminLayout, PageHeader } from "@/components/university-admin/layout/AdminLayout";
 import {
-  BarChart3, PieChart as PieIcon, Calendar as CalendarIcon, ChevronDown,
-  ArrowLeft, Download, Filter, Layers, MapPin, Users, BookOpen,
-} from "lucide-react";
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  PieChart, Pie, Cell, AreaChart, Area, Legend
-} from "recharts";
+  AnalyticsFilters,
+  AnalyticsExport,
+  ApplicationsByRegionChart,
+  ApplicationsByProgramChart,
+  StatusDistributionChart,
+  ApplicationsOverTimeChart,
+  GenderDistributionChart,
+} from "@/components/university-admin/analytics/AnalyticsCharts";
+import { Button, LoadingSpinner } from "@/components/university-admin/ui";
+import { useAnalytics, useApplications } from "@/app/redux/hooks/useUniversityAdmin";
+import { Application, ApplicationStatus } from "@/app/redux/features/universityAdmin";
+import { ArrowLeft, Download, BarChart3 } from "lucide-react";
 
-// =====================================================
-// PCAS UNIVERSITY ANALYTICS (University-side, separate page)
-// Route suggestion: /app/university/admin/analytics/page.tsx
-// UI/UX upgraded for readability & brand consistency
-// =====================================================
+/* ----------------------------------------
+   Mock data
+----------------------------------------- */
+const generateMockApplications = (): Application[] => {
+  const programs = [
+    "BS Computer Science",
+    "BBA",
+    "MS Data Science",
+    "MBA",
+    "BE Electrical",
+    "BS Economics",
+  ];
+  const statuses: ApplicationStatus[] = ["Pending", "Under review", "Accepted", "Rejected"];
+  const students = ["Ayesha Khan", "Ali Raza", "Sara Ahmed", "Bilal Hussain", "Fatima Noor", "Usman Tariq"];
+  const cities = [
+    "Lahore",
+    "Karachi",
+    "Islamabad",
+    "Peshawar",
+    "Quetta",
+    "Multan",
+    "Faisalabad",
+    "Hyderabad",
+    "Gilgit",
+    "Muzaffarabad",
+  ];
+  const regions: NonNullable<Application["region"]>[] = [
+    "Punjab",
+    "Sindh",
+    "KPK",
+    "Balochistan",
+    "Gilgit-Baltistan",
+    "ICT",
+    "AJK",
+  ];
+  const genders: NonNullable<Application["gender"]>[] = ["Male", "Female", "Other"];
 
-type ApplicationStatus = "Pending" | "Under review" | "Accepted" | "Rejected";
-
-type AppRow = {
-  id: string;
-  student: string;
-  age: number;
-  gender: "Male" | "Female" | "Other";
-  city: string;
-  region: "Punjab" | "Sindh" | "KPK" | "Balochistan" | "Gilgit-Baltistan" | "ICT" | "AJK";
-  program: string;
-  university: string;
-  submittedAt: string; // ISO
-  status: ApplicationStatus;
+  return Array.from({ length: 520 }, (_, i) => ({
+    id: `APP-${3000 + i}`,
+    student: students[i % students.length],
+    age: 17 + (i % 14),
+    gender: genders[i % genders.length],
+    city: cities[i % cities.length],
+    region: regions[i % regions.length],
+    program: programs[i % programs.length],
+    university: "LUMS",
+    submittedAt: new Date(
+      2025,
+      9,
+      (i % 27) + 1,
+      Math.floor(Math.random() * 23),
+      Math.floor(Math.random() * 59)
+    ).toISOString(),
+    status: statuses[i % statuses.length],
+    score: Math.round(Math.random() * 100),
+    documents: ["Personal Statement.pdf", "High School Transcript.pdf", "CNIC.pdf"],
+  }));
 };
 
-const CURRENT_UNI = "LUMS" as const;
-const PROGRAMS = ["BS Computer Science","BBA","MS Data Science","MBA","BE Electrical","BS Economics"] as const;
-const CITIES: Record<string, (typeof PROGRAMS)[number][]> = {
-  Lahore: ["BS Computer Science","BBA","MS Data Science"],
-  Karachi: ["MBA","BE Electrical","BS Economics"],
-  Islamabad: ["BS Computer Science","MBA"],
-  Peshawar: ["BBA","BS Economics"],
-  Quetta: ["BE Electrical","MBA"],
-  Multan: ["BBA","BS Economics"],
-  Faisalabad: ["BS Computer Science","BBA"],
-  Hyderabad: ["MBA","MS Data Science"],
-  Gilgit: ["BS Economics"],
-  Muzaffarabad: ["BBA"],
-};
-const CITY_REGION: Record<string, AppRow["region"]> = {
-  Lahore: "Punjab", Faisalabad: "Punjab", Multan: "Punjab",
-  Karachi: "Sindh", Hyderabad: "Sindh",
-  Islamabad: "ICT", Gilgit: "Gilgit-Baltistan",
-  Peshawar: "KPK", Quetta: "Balochistan", Muzaffarabad: "AJK",
-};
-
-const STATUSES: ApplicationStatus[] = ["Pending","Under review","Accepted","Rejected"];
-const GENDERS = ["Male","Female","Other"] as const;
-
-// Brand-adjacent palette (accessible contrast)
-const PALETTE = [
-  "#10b981", // emerald 500
-  "#059669", // emerald 600
-  "#34d399", // emerald 400
-  "#60a5fa", // blue 400
-  "#2563eb", // blue 600
-  "#f59e0b", // amber 500
-  "#fbbf24", // amber 400
-  "#ef4444", // rose/red 500
-  "#a78bfa", // violet 400
-  "#14b8a6", // teal 500
-];
-
-// ---- Mock dataset (replace with server data) ----
-function makeMock(): AppRow[] {
-  const rows: AppRow[] = [];
-  const cities = Object.keys(CITIES);
-  for (let i = 0; i < 520; i++) {
-    const city = cities[i % cities.length] as keyof typeof CITY_REGION;
-    const program = PROGRAMS[i % PROGRAMS.length];
-    const status = STATUSES[i % STATUSES.length];
-    const gender = GENDERS[i % GENDERS.length];
-    const age = 17 + (i % 14); // 17..30
-    const day = (i % 27) + 1;
-    const month = 9; // October (0-indexed date constructor)
-    rows.push({
-      id: `APP-${(3000 + i).toString()}`,
-      student: ["Ayesha Khan","Ali Raza","Sara Ahmed","Bilal Hussain","Fatima Noor","Usman Tariq"][i % 6]!,
-      age,
-      gender: gender as any,
-      city,
-      region: CITY_REGION[city],
-      program,
-      university: CURRENT_UNI,
-      submittedAt: new Date(2025, month, day, Math.floor(Math.random()*23), Math.floor(Math.random()*59)).toISOString(),
-      status,
-    });
-  }
-  return rows;
-}
-
-const cardBase = "bg-white border border-[rgba(14,169,113,.14)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)]";
-const lightRing = "focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0";
-const cn = (...c: (string|false|undefined)[]) => c.filter(Boolean).join(" ");
-
+/* ----------------------------------------
+   Page
+----------------------------------------- */
 export default function UniversityAnalyticsPage() {
-  const [rows, setRows] = useState<AppRow[]>(makeMock());
-  const [query, setQuery] = useState("");
-  const [program, setProgram] = useState<string|"All">("All");
-  const [status, setStatus] = useState<ApplicationStatus|"All">("All");
-  const [region, setRegion] = useState<AppRow["region"]|"All">("All");
-  const [gender, setGender] = useState<typeof GENDERS[number]|"All">("All");
+  const { filters, setFilters } = useAnalytics();
+  const { applications, setApplications } = useApplications();
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Filtered dataset
-  const data = useMemo(() => rows.filter(r =>
-    r.university === CURRENT_UNI &&
-    (program === "All" || r.program === program) &&
-    (status === "All" || r.status === status) &&
-    (region === "All" || r.region === region) &&
-    (gender === "All" || r.gender === gender) &&
-    (query.trim() === "" || r.student.toLowerCase().includes(query.toLowerCase()) || r.city.toLowerCase().includes(query.toLowerCase()))
-  ), [rows, program, status, region, query, gender]);
+  // Initialize mock data
+  useEffect(() => {
+    setIsLoading(true);
+    const t = setTimeout(() => {
+      setApplications(generateMockApplications());
+      setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [setApplications]);
 
-  // ----------- Aggregations -----------
-  const byRegion = useMemo(() => groupCount(data, r => r.region), [data]);
-  const byCity = useMemo(() => topNWithOther(groupCount(data, r => r.city), 8), [data]);
-  const byProgram = useMemo(() => groupCount(data, r => r.program), [data]);
-  const byGender = useMemo(() => groupCount(data, r => r.gender), [data]);
-  const byAgeBucket = useMemo(() => {
-    const buckets: Record<string, number> = {};
-    for (const r of data) {
-      const b = bucketAge(r.age);
-      buckets[b] = (buckets[b]||0)+1;
-    }
-    return dictToArr(buckets, "age");
-  }, [data]);
-  const byStatusRegion = useMemo(() => stackByKey(data, r=>r.region, r=>r.status), [data]);
-  const timeline = useMemo(() => {
-    const dayCounts: Record<string, number> = {};
-    for (const r of data) {
-      const d = new Date(r.submittedAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      dayCounts[key] = (dayCounts[key]||0)+1;
-    }
-    const arr = Object.entries(dayCounts).map(([k,v])=>({ day: k, count: v }));
-    return arr.sort((a,b) => new Date(a.day).getTime()-new Date(b.day).getTime());
-  }, [data]);
+  // Filter applications (typed)
+  const filteredApplications: Application[] = useMemo(() => {
+    return applications.filter((app: Application) => {
+      const matchesProgram = filters.program === "All" || app.program === filters.program;
+      const matchesStatus = filters.status === "All" || app.status === filters.status;
+      const matchesRegion = filters.region === "All" || app.region === filters.region;
+      const matchesGender = filters.gender === "All" || app.gender === filters.gender;
 
-  // CSV export of current filtered dataset
-  function exportCSV() {
-    const header = ["id","student","age","gender","city","region","program","status","submittedAt"].join(",");
-    const lines = data.map(r => [r.id,r.student,r.age,r.gender,r.city,r.region,r.program,r.status,r.submittedAt].join(","));
-    const csv = [header,...lines].join("");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `analytics-${CURRENT_UNI}.csv`; a.click();
-    URL.revokeObjectURL(url);
+      const q = filters.searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        q === "" ||
+        app.student.toLowerCase().includes(q) ||
+        (app.city ?? "").toLowerCase().includes(q) ||
+        app.program.toLowerCase().includes(q);
+
+      const appDate = new Date(app.submittedAt);
+      const days = Number(filters.dateRange);
+      const matchesDateRange = Number.isFinite(days)
+        ? appDate >= new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+        : true;
+
+      return (
+        matchesProgram &&
+        matchesStatus &&
+        matchesRegion &&
+        matchesGender &&
+        matchesSearch &&
+        matchesDateRange
+      );
+    });
+  }, [applications, filters]);
+
+  // Unique programs for filter dropdown
+  const programs = useMemo<string[]>(
+    () => Array.from(new Set(applications.map((app: Application) => app.program))),
+    [applications]
+  );
+
+  // Export CSV
+  const handleExport = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+
+      const header: string[] = ["ID", "Student", "Program", "Status", "Region", "Gender", "Submitted At"];
+      const rows: string[][] = filteredApplications.map((app: Application) => [
+        String(app.id),
+        String(app.student),
+        String(app.program),
+        String(app.status),
+        String(app.region ?? ""),
+        String(app.gender ?? ""),
+        String(app.submittedAt),
+      ]);
+
+      const csv: string = [header, ...rows]
+        .map((r: string[]) =>
+          r
+            .map((cell: string) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
+            .join(",")
+        )
+        .join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `analytics-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 600);
+  };
+
+  if (isLoading && applications.length === 0) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center py-12">
+          <LoadingSpinner size="lg" />
+        </div>
+      </AdminLayout>
+    );
   }
+
+  // Derived stats
+  const acceptanceRate: number =
+    filteredApplications.length > 0
+      ? Math.round(
+          (filteredApplications.filter((a: Application) => a.status === "Accepted").length /
+            filteredApplications.length) *
+            100
+        )
+      : 0;
+
+  const pendingReviewCount: number = filteredApplications.filter(
+    (a: Application) => a.status === "Pending" || a.status === "Under review"
+  ).length;
+
+  const topProgramLabel: string = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredApplications.forEach((a: Application) => {
+      counts[a.program] = (counts[a.program] ?? 0) + 1;
+    });
+    const entries = Object.entries(counts) as [string, number][];
+    entries.sort(([, av], [, bv]) => bv - av);
+    return entries[0]?.[0] ?? "N/A";
+  }, [filteredApplications]);
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <Link href="/universityadmin/dashboard" className={cn("outline-button h-10 px-3", lightRing)}><ArrowLeft className="size-4 mr-2"/>Applications</Link>
-        <h1 className="text-2xl md:text-3xl font-semibold text-[var(--pakistan-green)] tracking-tight flex items-center gap-2">
-          <BarChart3 className="size-6"/> Analytics – {CURRENT_UNI}
-        </h1>
-        <div className="ml-auto flex items-center gap-2">
-          <button onClick={exportCSV} className={cn("normal-button h-10 px-3", lightRing)}><Download className="size-4 mr-2"/>Export CSV</button>
-        </div>
-      </div>
+    <AdminLayout>
+      <PageHeader
+        title="Analytics Dashboard"
+        description="Comprehensive insights into application trends and patterns"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/universityadmin/dashboard" },
+          { label: "Analytics" },
+        ]}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link href="/universityadmin/dashboard">
+              <Button variant="outline">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </Link>
+            <Button onClick={handleExport} loading={isLoading}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+        }
+      />
 
       {/* Filters */}
-      <section className={cn(cardBase, "p-4 mb-6")}> 
-        <div className="grid grid-cols-1 xl:grid-cols-6 gap-3">
-          <div className="relative xl:col-span-2">
-            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search student or city..." className={cn("w-full h-10 pl-3 pr-3 rounded-xl border border-slate-200", lightRing)} />
-          </div>
-          <Select label="Program" value={program} onChange={setProgram} options={["All",...PROGRAMS]} />
-          <Select label="Status" value={status} onChange={setStatus} options={["All",...STATUSES]} />
-          <Select label="Region" value={region} onChange={setRegion} options={["All","Punjab","Sindh","KPK","Balochistan","Gilgit-Baltistan","ICT","AJK"]} />
-          <Select label="Gender" value={gender} onChange={setGender} options={["All",...GENDERS]} />
+      <AnalyticsFilters filters={filters} onFiltersChange={setFilters} programs={programs} />
+
+      {/* One-click export chip/bar */}
+      <AnalyticsExport onExport={handleExport} isLoading={isLoading} />
+
+      {/* Charts */}
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <ApplicationsByRegionChart applications={filteredApplications} />
+          <ApplicationsByProgramChart applications={filteredApplications} />
         </div>
-      </section>
 
-      {/* First row: region bars, city bars, gender pie */}
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <ChartCard title="Applications by Region" subtitle="Which provinces/regions send the most applicants?" icon={<MapPin className="size-4"/>}>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={toBarData(byRegion)} margin={{left: 0, right: 10, top: 10, bottom: 0}}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <Tooltip content={<NiceTooltip />} />
-              <Bar dataKey="value">
-                {toBarData(byRegion).map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <StatusDistributionChart applications={filteredApplications} />
+          <GenderDistributionChart applications={filteredApplications} />
+        </div>
 
-        <ChartCard title="Top Cities (incl. Other)" subtitle="Focus the top contributors and bundle the long tail" icon={<Layers className="size-4"/>}>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={toBarData(byCity)} layout="vertical" margin={{left: 20, right: 10, top: 10, bottom: 0}}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: "#334155" }} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} />
-              <Tooltip content={<NiceTooltip />} />
-              <Bar dataKey="value">
-                {toBarData(byCity).map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Gender Split" subtitle="Overall distribution by gender" icon={<Users className="size-4"/>}>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={toBarData(byGender)} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90}>
-                {toBarData(byGender).map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-              </Pie>
-              <Tooltip content={<NiceTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12, color: "#334155" }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </section>
-
-      {/* Second row: age, timeline, program distribution */}
-      <section className="mt-4 grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <ChartCard title="Age Distribution" subtitle="Bucketed ages for readability" icon={<Users className="size-4"/>}>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={byAgeBucket} margin={{left: 0, right: 10, top: 10, bottom: 0}}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="age" tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <Tooltip content={<NiceTooltip />} />
-              <Bar dataKey="value">
-                {byAgeBucket.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Applications Over Time" subtitle="Daily submissions (filtered)" icon={<CalendarIcon className="size-4"/>}>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={timeline} margin={{left: 0, right: 10, top: 10, bottom: 0}}>
-              <defs>
-                <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <Tooltip content={<NiceTooltip />} />
-              <Area type="monotone" dataKey="count" stroke="#059669" fill="url(#grad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Program Mix" subtitle="Distribution of applications by program" icon={<BookOpen className="size-4"/>}>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={toBarData(byProgram)} margin={{left: 0, right: 10, top: 10, bottom: 0}}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <Tooltip content={<NiceTooltip />} />
-              <Bar dataKey="value">
-                {toBarData(byProgram).map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </section>
-
-      {/* Third row: stacked by region & status */}
-      <section className="mt-4 grid grid-cols-1 gap-4">
-        <ChartCard title="Funnel by Region (Status Stacked)" subtitle="Compare status mix across regions" icon={<BarChart3 className="size-4"/>}>
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={byStatusRegion} margin={{left: 0, right: 10, top: 10, bottom: 0}}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#334155" }} axisLine={{ stroke: "#cbd5e1" }} tickLine={false} />
-              <Tooltip content={<NiceTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12, color: "#334155" }} />
-              <Bar dataKey="Pending" stackId="a" fill="#f59e0b" />
-              <Bar dataKey="Under review" stackId="a" fill="#60a5fa" />
-              <Bar dataKey="Accepted" stackId="a" fill="#10b981" />
-              <Bar dataKey="Rejected" stackId="a" fill="#ef4444" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </section>
-
-      <p className="text-xs text-slate-500 mt-4">Note: All charts respond to the filters above (program, status, region, gender, search). Replace mock data with your API for production.</p>
-    </div>
-  );
-}
-
-// -------------------- Small UI helpers --------------------
-function Select<T extends string>({ label, value, onChange, options }:{ label: string; value: T; onChange: (v:T)=>void; options: readonly T[] | T[] }) {
-  return (
-    <div>
-      <label className="text-xs text-slate-500 mb-1 block">{label}</label>
-      <div className="relative">
-        <select value={value} onChange={(e)=>onChange(e.target.value as T)} className={cn("w-full h-10 px-3 rounded-xl border bg-white", "border-slate-200", lightRing)}>
-          {options.map((o)=> <option key={String(o)} value={String(o)}>{String(o)}</option>)}
-        </select>
-        <ChevronDown className="size-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"/>
+        <div className="grid grid-cols-1 gap-6">
+          <ApplicationsOverTimeChart applications={filteredApplications} />
+        </div>
       </div>
-    </div>
-  );
-}
 
-function ChartCard({ title, subtitle, icon, children }:{ title: string; subtitle?: string; icon?: any; children: any }) {
-  return (
-    <div className={cn(cardBase, "p-4")}> 
-      <div className="flex items-center gap-2 text-[var(--pakistan-green)] font-semibold">{icon} {title}</div>
-      {subtitle && <p className="text-xs text-slate-500 mb-2">{subtitle}</p>}
-      <div className="h-[260px] w-full">{children}</div>
-    </div>
-  );
-}
-
-function NiceTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-md">
-      {label && <div className="font-semibold text-slate-800 mb-1">{label}</div>}
-      {payload.map((p: any, i: number) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="inline-block size-2 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-slate-600">{p.name}:</span>
-          <span className="font-semibold text-slate-900">{formatNumber(p.value)}</span>
+      {/* Summary cards */}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-lg border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600">Total Applications</p>
+              <p className="text-2xl font-semibold text-slate-900">{filteredApplications.length}</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-slate-500" />
+          </div>
         </div>
-      ))}
-    </div>
+
+        <div className="bg-white p-6 rounded-lg border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600">Acceptance Rate</p>
+              <p className="text-2xl font-semibold text-slate-900">{acceptanceRate}%</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-emerald-500" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600">Pending Review</p>
+              <p className="text-2xl font-semibold text-slate-900">{pendingReviewCount}</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-yellow-500" />
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-600">Top Program</p>
+              <p className="text-lg font-semibold text-slate-900">{topProgramLabel}</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-blue-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Dynamic Insights (typed) */}
+      <div className="mt-8 bg-white p-6 rounded-lg border border-slate-200">
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">Key Insights</h3>
+        {(() => {
+          const startOf = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          const now = new Date();
+          const today = startOf(now);
+          const dayMs = 24 * 60 * 60 * 1000;
+
+          const inLast = (days: number): Application[] =>
+            filteredApplications.filter((a: Application) =>
+              new Date(a.submittedAt) >= new Date(today.getTime() - days * dayMs)
+            );
+
+          const between = (fromDays: number, toDays: number): Application[] => {
+            const from = new Date(today.getTime() - fromDays * dayMs);
+            const to = new Date(today.getTime() - toDays * dayMs);
+            return filteredApplications.filter((a: Application) => {
+              const t = new Date(a.submittedAt);
+              return t >= to && t < from;
+            });
+          };
+
+          // totals
+          const last30 = inLast(30).length;
+          const prev30 = between(60, 30).length;
+          const mom: number | null = prev30 ? Math.round(((last30 - prev30) / prev30) * 100) : null;
+
+          // peak hour
+          const byHour: number[] = Array.from({ length: 24 }, () => 0);
+          filteredApplications.forEach((a: Application) => {
+            const h = new Date(a.submittedAt).getHours();
+            byHour[h] += 1;
+          });
+          const peakHour = byHour.indexOf(Math.max(...byHour));
+          const hourLabel =
+            peakHour === -1 ? "—" : `${((peakHour + 11) % 12) + 1} ${peakHour < 12 ? "AM" : "PM"}`;
+
+          // top weekdays
+          const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+          const byDay: Record<string, number> = {};
+          filteredApplications.forEach((a: Application) => {
+            const d = new Date(a.submittedAt).getDay();
+            const n = names[d];
+            byDay[n] = (byDay[n] || 0) + 1;
+          });
+          const topDays =
+            Object.entries(byDay)
+              .sort(([, av], [, bv]) => bv - av)
+              .slice(0, 2)
+              .map(([k]) => k)
+              .join(" & ") || "—";
+
+          // top region share
+          const byRegion: Record<string, number> = {};
+          filteredApplications.forEach((a: Application) => {
+            const r = a.region ?? "Unknown";
+            byRegion[r] = (byRegion[r] || 0) + 1;
+          });
+          const total = filteredApplications.length;
+          const [topRegion, topRegionCount] =
+            (Object.entries(byRegion).sort(([, av], [, bv]) => bv - av)[0] ?? ["—", 0]) as [string, number];
+          const topRegionShare = total ? Math.round((topRegionCount / total) * 100) : 0;
+
+          // acceptance rate + delta
+          const acceptedNow = filteredApplications.filter((x: Application) => x.status === "Accepted").length;
+          const rateNow = total ? Math.round((acceptedNow / total) * 100) : 0;
+          const prevWindow: Application[] = between(60, 30);
+          const prevAcc = prevWindow.filter((x: Application) => x.status === "Accepted").length;
+          const ratePrev: number | null = prevWindow.length
+            ? Math.round((prevAcc / prevWindow.length) * 100)
+            : null;
+          const rateDelta: number | null = ratePrev == null ? null : rateNow - ratePrev;
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="text-sm text-slate-600 mb-1">Applications (last 30 days)</div>
+                <div className="text-2xl font-semibold text-slate-900">{last30}</div>
+                <div className="text-xs mt-1">
+                  {mom == null ? (
+                    <span className="text-slate-500">No prior window for comparison</span>
+                  ) : mom >= 0 ? (
+                    <span className="text-emerald-600">▲ {mom}% MoM</span>
+                  ) : (
+                    <span className="text-rose-600">▼ {Math.abs(mom)}% MoM</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="text-sm text-slate-600 mb-1">Peak submission time</div>
+                <div className="text-2xl font-semibold text-slate-900">{hourLabel}</div>
+                <div className="text-xs text-slate-500 mt-1">Top weekdays: {topDays}</div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="text-sm text-slate-600 mb-1">Top region</div>
+                <div className="text-2xl font-semibold text-slate-900">{topRegion}</div>
+                <div className="text-xs text-slate-500 mt-1">{topRegionShare}% of filtered applications</div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="text-sm text-slate-600 mb-1">Acceptance rate</div>
+                <div className="text-2xl font-semibold text-slate-900">{rateNow}%</div>
+                <div className="text-xs mt-1">
+                  {rateDelta == null ? (
+                    <span className="text-slate-500">No prior window for comparison</span>
+                  ) : rateDelta >= 0 ? (
+                    <span className="text-emerald-600">▲ {rateDelta} pts vs. prior 30 days</span>
+                  ) : (
+                    <span className="text-rose-600">▼ {Math.abs(rateDelta)} pts vs. prior 30 days</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      <div className="mt-4 text-xs text-slate-500">
+        Note: All charts respond to the filters above. Data updates automatically.
+      </div>
+    </AdminLayout>
   );
-}
-
-// -------------------- Data utils --------------------
-function formatNumber(n: number) { return new Intl.NumberFormat().format(n); }
-
-function bucketAge(age: number) {
-  if (age < 18) return "<18"; if (age <= 20) return "18–20"; if (age <= 22) return "21–22"; if (age <= 25) return "23–25"; if (age <= 30) return "26–30"; return ">30";
-}
-
-function groupCount<T>(arr: T[], key: (x: T) => string) {
-  const map: Record<string, number> = {};
-  for (const r of arr) { const k = key(r); map[k] = (map[k]||0)+1; }
-  return map;
-}
-
-function stackByKey<T>(arr: T[], group: (x:T)=>string, series: (x:T)=>string) {
-  const rows: Record<string, any> = {};
-  for (const r of arr) {
-    const g = group(r); const s = series(r);
-    rows[g] = rows[g] || { name: g };
-    rows[g][s] = (rows[g][s]||0) + 1;
-  }
-  return Object.values(rows);
-}
-
-function dictToArr(d: Record<string, number>, keyName = "name") {
-  return Object.entries(d).map(([k,v]) => ({ [keyName]: k, value: v }));
-}
-
-function toBarData(d: Record<string, number>) { return dictToArr(d); }
-
-function topN(d: Record<string, number>, n: number) {
-  return Object.fromEntries(Object.entries(d).sort((a,b)=>b[1]-a[1]).slice(0,n));
-}
-
-function topNWithOther(d: Record<string, number>, n: number) {
-  const entries = Object.entries(d).sort((a,b)=>b[1]-a[1]);
-  const head = entries.slice(0, n);
-  const tail = entries.slice(n);
-  const other = tail.reduce((acc, [,v]) => acc+v, 0);
-  const obj = Object.fromEntries(head);
-  if (other > 0) obj["Other"] = other;
-  return obj;
 }
