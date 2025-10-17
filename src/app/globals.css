@@ -843,3 +843,11 @@ body {
   border: 1px solid rgba(0,0,0,.08);
   color: #0f172a;
 }
+
+/* Flat side-rail summary inside a sheet (no heavy shadow) */
+.sheet-aside{
+  border: 1px solid rgba(14,169,113,.16);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: none;               /* <- removes nested card elevation */
+}
